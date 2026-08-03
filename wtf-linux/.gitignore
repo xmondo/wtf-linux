@@ -1,0 +1,15 @@
+# Build artifacts
+output/
+*.iso
+*.log
+isowork/
+isomount/
+
+# Downloaded ISOs
+cache/
+*.orig.iso
+
+# Temporary files
+*.tmp
+*.swp
+*~

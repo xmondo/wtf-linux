@@ -1,0 +1,113 @@
+# =============================================================================
+# WTF Linux - Debian 13 (Trixie) Preseed Configuration
+# Fully automated amd64 installation with openssh-server
+# =============================================================================
+
+# --- Localization ---
+d-i debian-installer/locale string en_US.UTF-8
+d-i debian-installer/language string en
+d-i debian-installer/country string US
+d-i keyboard-configuration/xkb-keymap select us
+
+# --- Network ---
+d-i netcfg/choose_interface select auto
+d-i netcfg/get_hostname string wtf-linux
+d-i netcfg/get_domain string local
+d-i netcfg/hostname string wtf-linux
+
+# --- Mirror ---
+d-i mirror/country string manual
+d-i mirror/http/hostname string deb.debian.org
+d-i mirror/http/directory string /debian
+d-i mirror/http/proxy string
+d-i mirror/suite string trixie
+
+# --- Clock and Timezone ---
+d-i clock-setup/utc boolean true
+d-i time/zone string UTC
+d-i clock-setup/ntp boolean true
+
+# --- Partitioning ---
+# Use entire disk, single partition, no LVM
+d-i partman-auto/method string regular
+d-i partman-auto/choose_recipe select atomic
+d-i partman-partitioning/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+d-i partman-lvm/confirm boolean true
+d-i partman-lvm/confirm_nooverwrite boolean true
+
+# --- Root Account ---
+# Disable root login (use sudo instead)
+d-i passwd/root-login boolean false
+
+# --- User Account ---
+# Create default user 'wtf' with password 'wtf' (change after install)
+d-i passwd/user-fullname string WTF Linux User
+d-i passwd/username string wtf
+d-i passwd/user-password password wtf
+d-i passwd/user-password-again password wtf
+d-i user-setup/allow-password-weak boolean true
+
+# --- APT / Package Sources ---
+d-i apt-setup/non-free-firmware boolean true
+d-i apt-setup/contrib boolean true
+d-i apt-setup/non-free boolean true
+d-i apt-setup/use_mirror boolean true
+d-i apt-setup/services-select multiselect security, updates
+
+# --- Package Selection ---
+# Minimal system + SSH server, no desktop environment
+tasksel tasksel/first multiselect ssh-server, standard
+d-i pkgsel/include string \
+    openssh-server \
+    sudo \
+    curl \
+    wget \
+    vim \
+    htop \
+    net-tools \
+    iputils-ping \
+    dnsutils \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    apt-transport-https \
+    bash-completion \
+    man-db \
+    less \
+    ufw
+
+# No automatic updates during install
+d-i pkgsel/upgrade select full-upgrade
+
+# Popularity contest
+popularity-contest popularity-contest/participate boolean false
+
+# --- GRUB ---
+d-i grub-installer/only_debian boolean true
+d-i grub-installer/with_other_os boolean false
+d-i grub-installer/bootdev string default
+
+# --- Finish ---
+d-i finish-install/reboot_in_progress note
+d-i debian-installer/exit/poweroff boolean false
+
+# --- Late Commands (post-install customization) ---
+d-i preseed/late_command string \
+    in-target systemctl enable ssh ; \
+    in-target sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config ; \
+    in-target sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config ; \
+    in-target mkdir -p /etc/wtf-linux ; \
+    echo 'WTF Linux 1.0 (based on Debian 13 Trixie)' > /target/etc/wtf-linux/version ; \
+    echo 'wtf-linux' > /target/etc/hostname ; \
+    echo 'WTF Linux 1.0 \n \l' > /target/etc/issue ; \
+    echo 'Welcome to WTF Linux 1.0' > /target/etc/issue.net ; \
+    echo 'PRETTY_NAME="WTF Linux 1.0"' > /target/etc/wtf-release ; \
+    echo 'NAME="WTF Linux"' >> /target/etc/wtf-release ; \
+    echo 'VERSION="1.0"' >> /target/etc/wtf-release ; \
+    echo 'ID=wtf-linux' >> /target/etc/wtf-release ; \
+    echo 'ID_LIKE=debian' >> /target/etc/wtf-release ; \
+    echo 'HOME_URL="https://github.com/xmondo/wtf-linux"' >> /target/etc/wtf-release ; \
+    echo 'BUG_REPORT_URL="https://github.com/xmondo/wtf-linux/issues"' >> /target/etc/wtf-release ;
