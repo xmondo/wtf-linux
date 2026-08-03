@@ -10,7 +10,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="${PROJECT_DIR}/output"
-ISO_FILE="${OUTPUT_DIR}/wtf-linux-1.1-amd64.iso"
+ISO_FILE="${OUTPUT_DIR}/wtf-linux-1.2-amd64.iso"
 DISK_FILE="${OUTPUT_DIR}/wtf-linux-test.qcow2"
 
 MEMORY="2048"

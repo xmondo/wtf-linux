@@ -5,6 +5,11 @@
 # defaults already selected -- they can accept or change each one.
 # =============================================================================
 
+# --- Interactive mode ---
+# Show all installer prompts with preseeded values as defaults.
+# The user can accept the default or change it at each step.
+d-i preseed/interactive boolean true
+
 # --- Localization (defaults shown, user can change) ---
 d-i debian-installer/locale string en_US.UTF-8
 d-i debian-installer/language string en
@@ -153,8 +158,7 @@ d-i preseed/late_command string \
     mkdir -p /target/etc/ssh/sshd_config.d ; \
     cp /cdrom/wtf-linux/sshd-wtf-linux.conf /target/etc/ssh/sshd_config.d/wtf-linux.conf ; \
     in-target mkdir -p /etc/wtf-linux ; \
-    echo 'WTF Linux 1.1 (based on Debian 13 Trixie)' > /target/etc/wtf-linux/version ; \
-    echo 'wtf-linux' > /target/etc/hostname ; \
-    printf 'WTF Linux 1.1 \\n \\l\n' > /target/etc/issue ; \
-    echo 'Welcome to WTF Linux 1.1' > /target/etc/issue.net ; \
-    printf 'PRETTY_NAME="WTF Linux 1.1"\nNAME="WTF Linux"\nVERSION="1.1"\nID=wtf-linux\nID_LIKE=debian\nHOME_URL="https://github.com/xmondo/wtf-linux"\nBUG_REPORT_URL="https://github.com/xmondo/wtf-linux/issues"\n' > /target/etc/wtf-release ;
+    echo 'WTF Linux 1.2 (based on Debian 13 Trixie)' > /target/etc/wtf-linux/version ; \
+    printf 'WTF Linux 1.2 \\n \\l\n' > /target/etc/issue ; \
+    echo 'Welcome to WTF Linux 1.2' > /target/etc/issue.net ; \
+    printf 'PRETTY_NAME="WTF Linux 1.2"\nNAME="WTF Linux"\nVERSION="1.2"\nID=wtf-linux\nID_LIKE=debian\nHOME_URL="https://github.com/xmondo/wtf-linux"\nBUG_REPORT_URL="https://github.com/xmondo/wtf-linux/issues"\n' > /target/etc/wtf-release ;

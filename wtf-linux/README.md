@@ -21,7 +21,7 @@ A minimal amd64 Linux distribution based on Debian 13 (Trixie). Installs from a 
 When booting the ISO, the installer presents:
 
 ```
-WTF Linux 1.1 Installer
+WTF Linux 1.2 Installer
 
   Graphical install          <-- graphical Debian installer
   Install                    <-- text-mode Debian installer (default)
@@ -103,7 +103,7 @@ sudo ./scripts/build-iso.sh
 sudo ./scripts/build-iso.sh --source /path/to/debian-13.6.0-amd64-netinst.iso
 ```
 
-Output: `output/wtf-linux-1.1-amd64.iso`
+Output: `output/wtf-linux-1.2-amd64.iso`
 
 ### Validate the preseed
 
@@ -114,7 +114,7 @@ Output: `output/wtf-linux-1.1-amd64.iso`
 ## Writing to USB
 
 ```bash
-sudo dd if=output/wtf-linux-1.1-amd64.iso of=/dev/sdX bs=4M status=progress
+sudo dd if=output/wtf-linux-1.2-amd64.iso of=/dev/sdX bs=4M status=progress
 ```
 
 ## Testing in QEMU

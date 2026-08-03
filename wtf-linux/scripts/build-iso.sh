@@ -32,7 +32,7 @@ DEBIAN_MIRROR="https://cdimage.debian.org/cdimage/release/${DEBIAN_VERSION}"
 DEBIAN_ISO_NAME="debian-${DEBIAN_VERSION}-${DEBIAN_ARCH}-netinst.iso"
 DEBIAN_ISO_URL="${DEBIAN_MIRROR}/${DEBIAN_ARCH}/iso-cd/${DEBIAN_ISO_NAME}"
 
-WTF_VERSION="1.1"
+WTF_VERSION="1.2"
 WTF_ISO_NAME="wtf-linux-${WTF_VERSION}-${DEBIAN_ARCH}.iso"
 WTF_ISO_LABEL="WTF_Linux_${WTF_VERSION}"
 
@@ -143,7 +143,7 @@ ISOLINUX_CFG
 menu hshift 0
 menu width 82
 
-menu title WTF Linux 1.1 Installer
+menu title WTF Linux 1.2 Installer
 include stdmenu.cfg
 include wtf.cfg
 
@@ -213,7 +213,7 @@ cat > "$WORK_DIR/isolinux/boot.msg" <<'BOOTMSG'
    \ V  V /   | | |  _|   | |___| | | | | |_| |>  <
     \_/\_/    |_| |_|     |_____|_|_| |_|\__,_/_/\_\
 
-  WTF Linux 1.1 Installer
+  WTF Linux 1.2 Installer
   Based on Debian 13 (Trixie) - amd64
 
 BOOTMSG
