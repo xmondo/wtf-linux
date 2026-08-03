@@ -25,11 +25,11 @@ WORK_DIR="${PROJECT_DIR}/isowork"
 MOUNT_DIR="${PROJECT_DIR}/isomount"
 PRESEED_FILE="${PROJECT_DIR}/preseed/wtf-linux.preseed"
 
-DEBIAN_VERSION="13"
+DEBIAN_VERSION="13.6.0"
 DEBIAN_CODENAME="trixie"
 DEBIAN_ARCH="amd64"
-DEBIAN_MIRROR="https://cdimage.debian.org/cdimage/release/${DEBIAN_VERSION}.0"
-DEBIAN_ISO_NAME="debian-${DEBIAN_VERSION}.0-${DEBIAN_ARCH}-netinst.iso"
+DEBIAN_MIRROR="https://cdimage.debian.org/cdimage/release/${DEBIAN_VERSION}"
+DEBIAN_ISO_NAME="debian-${DEBIAN_VERSION}-${DEBIAN_ARCH}-netinst.iso"
 DEBIAN_ISO_URL="${DEBIAN_MIRROR}/${DEBIAN_ARCH}/iso-cd/${DEBIAN_ISO_NAME}"
 
 WTF_VERSION="1.0"
@@ -53,7 +53,7 @@ install_deps() {
     local deps=(xorriso isolinux syslinux-utils cpio gzip wget file)
     local missing=()
     for pkg in "${deps[@]}"; do
-        if ! dpkg -l "$pkg" &>/dev/null; then
+        if ! dpkg -s "$pkg" &>/dev/null; then
             missing+=("$pkg")
         fi
     done
@@ -192,28 +192,9 @@ cp "${PROJECT_DIR}/branding/motd" "$WORK_DIR/wtf-linux/motd"
 cp "${PROJECT_DIR}/config/apt/sources.list" "$WORK_DIR/wtf-linux/sources.list"
 cp "${PROJECT_DIR}/config/ssh/sshd_config.d/wtf-linux.conf" "$WORK_DIR/wtf-linux/sshd-wtf-linux.conf"
 
-# --- Update preseed late_command to copy branding from ISO ---
-# Append copy commands to the preseed
-cat >> "$WORK_DIR/preseed.cfg" <<'EXTRA_LATE'
-
-# Additional late commands to install branding from ISO media
-d-i preseed/late_command string \
-    in-target systemctl enable ssh ; \
-    cp /cdrom/wtf-linux/motd /target/etc/motd ; \
-    cp /cdrom/wtf-linux/sources.list /target/etc/apt/sources.list ; \
-    mkdir -p /target/etc/ssh/sshd_config.d ; \
-    cp /cdrom/wtf-linux/sshd-wtf-linux.conf /target/etc/ssh/sshd_config.d/wtf-linux.conf ; \
-    mkdir -p /target/etc/wtf-linux ; \
-    echo 'WTF Linux 1.0 (based on Debian 13 Trixie)' > /target/etc/wtf-linux/version ; \
-    echo 'wtf-linux' > /target/etc/hostname ; \
-    printf 'WTF Linux 1.0 \\n \\l\n' > /target/etc/issue ; \
-    echo 'Welcome to WTF Linux 1.0' > /target/etc/issue.net ; \
-    printf 'PRETTY_NAME="WTF Linux 1.0"\nNAME="WTF Linux"\nVERSION="1.0"\nID=wtf-linux\nID_LIKE=debian\nHOME_URL="https://github.com/xmondo/wtf-linux"\nBUG_REPORT_URL="https://github.com/xmondo/wtf-linux/issues"\n' > /target/etc/wtf-release ;
-EXTRA_LATE
-
 # --- Regenerate md5sums ---
 log "Regenerating MD5 checksums..."
-(cd "$WORK_DIR" && find . -follow -type f ! -name md5sum.txt ! -path './isolinux/*' -print0 | xargs -0 md5sum > md5sum.txt)
+(cd "$WORK_DIR" && find . -not -path './isolinux/*' -not -name md5sum.txt -type f -print0 | xargs -0 md5sum > md5sum.txt)
 
 # --- Build the new ISO ---
 log "Building WTF Linux ISO..."
