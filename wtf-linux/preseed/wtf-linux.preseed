@@ -93,7 +93,39 @@ d-i pkgsel/include string \
     firmware-misc-nonfree \
     ethtool \
     pciutils \
-    usbutils
+    usbutils \
+    xfsprogs \
+    xfsdump \
+    xfslibs-dev \
+    btrfs-progs \
+    e2fsprogs \
+    dosfstools \
+    ntfs-3g \
+    exfatprogs \
+    f2fs-tools \
+    jfsutils \
+    reiserfsprogs \
+    hfsprogs \
+    hfsplus \
+    hfsutils \
+    nilfs-tools \
+    udftools \
+    squashfs-tools \
+    erofs-utils \
+    cramfsswap \
+    mtools \
+    lvm2 \
+    mdadm \
+    cryptsetup \
+    dmsetup \
+    multipath-tools \
+    nfs-common \
+    cifs-utils \
+    sshfs \
+    fuse3 \
+    parted \
+    gdisk \
+    fdisk
 
 # No automatic updates during install
 d-i pkgsel/upgrade select full-upgrade
