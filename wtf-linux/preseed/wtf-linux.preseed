@@ -61,7 +61,6 @@ d-i pkgsel/include string \
     htop \
     net-tools \
     iputils-ping \
-    dnsutils \
     ca-certificates \
     gnupg \
     lsb-release \
@@ -99,7 +98,6 @@ d-i pkgsel/include string \
     reiserfsprogs \
     hfsprogs \
     hfsplus \
-    hfsutils \
     nilfs-tools \
     udftools \
     squashfs-tools \
@@ -125,7 +123,6 @@ d-i pkgsel/include string \
     dns-root-data \
     ldnsutils \
     libidn2-0 \
-    resolvconf \
     systemd-resolved
 
 # No automatic updates during install
@@ -156,8 +153,8 @@ d-i preseed/late_command string \
     mkdir -p /target/etc/ssh/sshd_config.d ; \
     cp /cdrom/wtf-linux/sshd-wtf-linux.conf /target/etc/ssh/sshd_config.d/wtf-linux.conf ; \
     in-target mkdir -p /etc/wtf-linux ; \
-    echo 'WTF Linux 1.0 (based on Debian 13 Trixie)' > /target/etc/wtf-linux/version ; \
+    echo 'WTF Linux 1.1 (based on Debian 13 Trixie)' > /target/etc/wtf-linux/version ; \
     echo 'wtf-linux' > /target/etc/hostname ; \
-    printf 'WTF Linux 1.0 \\n \\l\n' > /target/etc/issue ; \
-    echo 'Welcome to WTF Linux 1.0' > /target/etc/issue.net ; \
-    printf 'PRETTY_NAME="WTF Linux 1.0"\nNAME="WTF Linux"\nVERSION="1.0"\nID=wtf-linux\nID_LIKE=debian\nHOME_URL="https://github.com/xmondo/wtf-linux"\nBUG_REPORT_URL="https://github.com/xmondo/wtf-linux/issues"\n' > /target/etc/wtf-release ;
+    printf 'WTF Linux 1.1 \\n \\l\n' > /target/etc/issue ; \
+    echo 'Welcome to WTF Linux 1.1' > /target/etc/issue.net ; \
+    printf 'PRETTY_NAME="WTF Linux 1.1"\nNAME="WTF Linux"\nVERSION="1.1"\nID=wtf-linux\nID_LIKE=debian\nHOME_URL="https://github.com/xmondo/wtf-linux"\nBUG_REPORT_URL="https://github.com/xmondo/wtf-linux/issues"\n' > /target/etc/wtf-release ;
