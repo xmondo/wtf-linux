@@ -1,54 +1,46 @@
 # =============================================================================
 # WTF Linux - Debian 13 (Trixie) Preseed Configuration
-# Fully automated amd64 installation with openssh-server
+# Interactive installation with pre-filled WTF Linux defaults.
+# The user sees the standard Debian installer screens with sensible
+# defaults already selected -- they can accept or change each one.
 # =============================================================================
 
-# --- Localization ---
+# --- Localization (defaults shown, user can change) ---
 d-i debian-installer/locale string en_US.UTF-8
 d-i debian-installer/language string en
 d-i debian-installer/country string US
 d-i keyboard-configuration/xkb-keymap select us
 
-# --- Network ---
+# --- Network (defaults shown, user can change) ---
 d-i netcfg/choose_interface select auto
 d-i netcfg/get_hostname string wtf-linux
 d-i netcfg/get_domain string local
-d-i netcfg/hostname string wtf-linux
 
-# --- Mirror ---
+# --- Mirror (defaults shown, user can change) ---
 d-i mirror/country string manual
 d-i mirror/http/hostname string deb.debian.org
 d-i mirror/http/directory string /debian
 d-i mirror/http/proxy string
 d-i mirror/suite string trixie
 
-# --- Clock and Timezone ---
+# --- Clock and Timezone (defaults shown, user can change) ---
 d-i clock-setup/utc boolean true
 d-i time/zone string UTC
 d-i clock-setup/ntp boolean true
 
-# --- Partitioning ---
-# Use entire disk, single partition, no LVM
+# --- Partitioning (defaults shown, user confirms interactively) ---
+# Default to regular partitioning with atomic recipe, but the user
+# will see the partitioner and can choose guided/manual, LVM, etc.
 d-i partman-auto/method string regular
 d-i partman-auto/choose_recipe select atomic
-d-i partman-partitioning/confirm_write_new_label boolean true
-d-i partman/choose_partition select finish
-d-i partman/confirm boolean true
-d-i partman/confirm_nooverwrite boolean true
-d-i partman-lvm/confirm boolean true
-d-i partman-lvm/confirm_nooverwrite boolean true
 
 # --- Root Account ---
-# Disable root login (use sudo instead)
+# Default: disable root login (use sudo). User sees this prompt.
 d-i passwd/root-login boolean false
 
-# --- User Account ---
-# Create default user 'wtf' with password 'wtf' (change after install)
+# --- User Account (defaults shown, user can change) ---
 d-i passwd/user-fullname string WTF Linux User
 d-i passwd/username string wtf
-d-i passwd/user-password password wtf
-d-i passwd/user-password-again password wtf
-d-i user-setup/allow-password-weak boolean true
 
 # --- APT / Package Sources ---
 d-i apt-setup/non-free-firmware boolean true
