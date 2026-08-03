@@ -125,7 +125,16 @@ d-i pkgsel/include string \
     fuse3 \
     parted \
     gdisk \
-    fdisk
+    fdisk \
+    bind9-host \
+    bind9-dnsutils \
+    whois \
+    dnstracer \
+    dns-root-data \
+    ldnsutils \
+    libidn2-0 \
+    resolvconf \
+    systemd-resolved
 
 # No automatic updates during install
 d-i pkgsel/upgrade select full-upgrade
