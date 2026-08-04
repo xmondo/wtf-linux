@@ -10,7 +10,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="${PROJECT_DIR}/output"
-ISO_FILE="${OUTPUT_DIR}/wtf-linux-1.2-amd64.iso"
+ISO_FILE="${OUTPUT_DIR}/wtf-linux-1.2.1-amd64.iso"
 DISK_FILE="${OUTPUT_DIR}/wtf-linux-test.qcow2"
 
 MEMORY="2048"
@@ -63,10 +63,10 @@ QEMU_ARGS=(
 if $HEADLESS; then
     QEMU_ARGS+=(-nographic -serial mon:stdio)
     echo "  Mode:   Headless (serial console)"
-    echo "  SSH:    ssh -p 2222 wtf@localhost (after install completes)"
+    echo "  SSH:    ssh -p 2222 <user>@localhost (after install completes)"
 else
-    echo "  Mode:   Graphical"
-    echo "  SSH:    ssh -p 2222 wtf@localhost (after install completes)"
+    echo "  Mode:   Graphical (QEMU display)"
+    echo "  SSH:    ssh -p 2222 <user>@localhost (after install completes)"
 fi
 
 qemu-system-x86_64 "${QEMU_ARGS[@]}"

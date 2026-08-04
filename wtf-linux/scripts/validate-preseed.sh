@@ -20,10 +20,8 @@ errors=0
 # Check for required directives
 required_directives=(
     "d-i debian-installer/locale"
-    "d-i netcfg/choose_interface"
     "d-i mirror/http/hostname"
     "d-i partman-auto/method"
-    "d-i passwd/username"
     "d-i grub-installer/only_debian"
     "d-i pkgsel/include"
     "tasksel tasksel/first"

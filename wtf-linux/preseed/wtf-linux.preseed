@@ -16,10 +16,13 @@ d-i debian-installer/language string en
 d-i debian-installer/country string US
 d-i keyboard-configuration/xkb-keymap select us
 
-# --- Network (defaults shown, user can change) ---
+# --- Network (fully interactive, no defaults) ---
+# Do not pre-configure any network settings so the installer
+# presents all network screens and lets the user choose DHCP or static,
+# enter IP/netmask/gateway/DNS, hostname, and domain interactively.
+d-i netcfg/enable boolean true
 d-i netcfg/choose_interface select auto
-d-i netcfg/get_hostname string wtf-linux
-d-i netcfg/get_domain string local
+d-i netcfg/disable_autoconfig boolean true
 
 # --- Mirror (defaults shown, user can change) ---
 d-i mirror/country string manual
@@ -42,10 +45,6 @@ d-i partman-auto/choose_recipe select atomic
 # --- Root Account ---
 # Default: disable root login (use sudo). User sees this prompt.
 d-i passwd/root-login boolean false
-
-# --- User Account (defaults shown, user can change) ---
-d-i passwd/user-fullname string WTF Linux User
-d-i passwd/username string wtf
 
 # --- APT / Package Sources ---
 d-i apt-setup/non-free-firmware boolean true
@@ -150,6 +149,8 @@ d-i debian-installer/exit/poweroff boolean false
 # The build script copies branding files to /cdrom/wtf-linux/ on the ISO
 # so they are available here via /cdrom/ paths.
 d-i preseed/late_command string \
+    in-target systemctl enable systemd-resolved ; \
+    in-target ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf ; \
     in-target systemctl enable ssh ; \
     in-target sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config ; \
     in-target sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config ; \
@@ -158,7 +159,7 @@ d-i preseed/late_command string \
     mkdir -p /target/etc/ssh/sshd_config.d ; \
     cp /cdrom/wtf-linux/sshd-wtf-linux.conf /target/etc/ssh/sshd_config.d/wtf-linux.conf ; \
     in-target mkdir -p /etc/wtf-linux ; \
-    echo 'WTF Linux 1.2 (based on Debian 13 Trixie)' > /target/etc/wtf-linux/version ; \
-    printf 'WTF Linux 1.2 \\n \\l\n' > /target/etc/issue ; \
-    echo 'Welcome to WTF Linux 1.2' > /target/etc/issue.net ; \
-    printf 'PRETTY_NAME="WTF Linux 1.2"\nNAME="WTF Linux"\nVERSION="1.2"\nID=wtf-linux\nID_LIKE=debian\nHOME_URL="https://github.com/xmondo/wtf-linux"\nBUG_REPORT_URL="https://github.com/xmondo/wtf-linux/issues"\n' > /target/etc/wtf-release ;
+    echo 'WTF Linux 1.2.1 (based on Debian 13 Trixie)' > /target/etc/wtf-linux/version ; \
+    printf 'WTF Linux 1.2.1 \\n \\l\n' > /target/etc/issue ; \
+    echo 'Welcome to WTF Linux 1.2.1' > /target/etc/issue.net ; \
+    printf 'PRETTY_NAME="WTF Linux 1.2.1"\nNAME="WTF Linux"\nVERSION="1.2.1"\nID=wtf-linux\nID_LIKE=debian\nHOME_URL="https://github.com/xmondo/wtf-linux"\nBUG_REPORT_URL="https://github.com/xmondo/wtf-linux/issues"\n' > /target/etc/wtf-release ;

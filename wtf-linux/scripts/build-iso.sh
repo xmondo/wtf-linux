@@ -32,7 +32,7 @@ DEBIAN_MIRROR="https://cdimage.debian.org/cdimage/release/${DEBIAN_VERSION}"
 DEBIAN_ISO_NAME="debian-${DEBIAN_VERSION}-${DEBIAN_ARCH}-netinst.iso"
 DEBIAN_ISO_URL="${DEBIAN_MIRROR}/${DEBIAN_ARCH}/iso-cd/${DEBIAN_ISO_NAME}"
 
-WTF_VERSION="1.2"
+WTF_VERSION="1.2.1"
 WTF_ISO_NAME="wtf-linux-${WTF_VERSION}-${DEBIAN_ARCH}.iso"
 WTF_ISO_LABEL="WTF_Linux_${WTF_VERSION}"
 
@@ -50,7 +50,7 @@ check_root() {
 
 install_deps() {
     log "Checking build dependencies..."
-    local deps=(xorriso isolinux syslinux-utils cpio gzip wget file)
+    local deps=(xorriso isolinux syslinux-utils cpio gzip wget file imagemagick)
     local missing=()
     for pkg in "${deps[@]}"; do
         if ! dpkg -s "$pkg" &>/dev/null; then
@@ -124,8 +124,48 @@ chmod -R u+w "$WORK_DIR"
 log "Injecting WTF Linux preseed configuration..."
 cp "$PRESEED_FILE" "$WORK_DIR/preseed.cfg"
 
+# --- Replace installer splash text in initrd ---
+log "Replacing Debian installer splash with WTF Linux branding..."
+INITRD_WORK=$(mktemp -d "${WORK_DIR}/initrd.XXXXXX")
+
+# Extract initrd
+(cd "$INITRD_WORK" && gzip -dc "$WORK_DIR/install.amd/initrd.gz" | cpio -id --quiet 2>/dev/null)
+
+# Replace the installer splash/banner text if present
+# The Debian installer uses /usr/share/graphics/logo_debian.png for graphical
+# installs and displays version info from various places.
+# For text-mode installs the key branding is in the preseed and boot menu,
+# but we can also replace the installer's internal banner strings.
+
+# Create a WTF Linux text banner for the installer
+if [[ -d "$INITRD_WORK/usr/share/debian-installer" ]]; then
+    echo "WTF Linux ${WTF_VERSION} Installer" > "$INITRD_WORK/usr/share/debian-installer/build-id" 2>/dev/null || true
+fi
+
+# Replace the Debian logo with the WTF Linux splash image
+if [[ -d "$INITRD_WORK/usr/share/graphics" ]]; then
+    log "Converting branding/desolate_city.jpg to PNG and replacing logo_debian.png in initrd..."
+    convert "${PROJECT_DIR}/branding/desolate_city.jpg" "$INITRD_WORK/usr/share/graphics/logo_debian.png"
+    log "Installer splash image replaced with desolate_city.jpg."
+fi
+
+# Inject the preseed into the initrd as well (belt and suspenders --
+# the preseed is also on /cdrom but having it in the initrd ensures
+# it is found during early installer stages)
+cp "$PRESEED_FILE" "$INITRD_WORK/preseed.cfg"
+
+# Repack initrd
+(cd "$INITRD_WORK" && find . | cpio -H newc -o --quiet | gzip -9 > "$WORK_DIR/install.amd/initrd.gz")
+rm -rf "$INITRD_WORK"
+log "Initrd repacked with WTF Linux branding and preseed."
+
 # --- Modify ISOLINUX boot menu for interactive install ---
 log "Configuring boot menu for interactive install with WTF defaults..."
+
+# Generate ISOLINUX splash image (640x480 PNG for vesamenu.c32)
+log "Converting branding/desolate_city.jpg to 640x480 PNG for ISOLINUX splash..."
+convert "${PROJECT_DIR}/branding/desolate_city.jpg" -resize 640x480! "$WORK_DIR/isolinux/splash.png"
+log "ISOLINUX splash image installed."
 
 # BIOS boot (isolinux)
 if [[ -f "$WORK_DIR/isolinux/isolinux.cfg" ]]; then
@@ -134,6 +174,7 @@ if [[ -f "$WORK_DIR/isolinux/isolinux.cfg" ]]; then
 default vesamenu.c32
 timeout 0
 prompt 0
+display boot.msg
 
 include menu.cfg
 ISOLINUX_CFG
@@ -143,7 +184,7 @@ ISOLINUX_CFG
 menu hshift 0
 menu width 82
 
-menu title WTF Linux 1.2 Installer
+menu title WTF Linux 1.2.1 Installer
 include stdmenu.cfg
 include wtf.cfg
 
@@ -164,29 +205,25 @@ menu begin advanced
     label auto
         menu label ^Automated install (unattended)
         kernel /install.amd/vmlinuz
-        append auto=true priority=critical preseed/file=/cdrom/preseed.cfg initrd=/install.amd/initrd.gz --- quiet
+        append auto=true priority=critical preseed/file=/cdrom/preseed.cfg initrd=/install.amd/initrd.gz ---
 
     menu end
 MENUCFG
 
     # Create the WTF Linux menu entries
     cat > "$WORK_DIR/isolinux/wtf.cfg" <<'WTFCFG'
-label installgui
-    menu label ^Graphical install
-    kernel /install.amd/vmlinuz
-    append vga=788 preseed/file=/cdrom/preseed.cfg initrd=/install.amd/initrd.gz --- quiet
-
 label install
     menu label ^Install
     menu default
     kernel /install.amd/vmlinuz
-    append preseed/file=/cdrom/preseed.cfg initrd=/install.amd/initrd.gz --- quiet
+    append preseed/file=/cdrom/preseed.cfg initrd=/install.amd/initrd.gz ---
 WTFCFG
 
-    # Create stdmenu.cfg if it doesn't exist
-    if [[ ! -f "$WORK_DIR/isolinux/stdmenu.cfg" ]]; then
-        cat > "$WORK_DIR/isolinux/stdmenu.cfg" <<'STDMENU'
-menu background #00000000
+    # Always overwrite stdmenu.cfg -- the Debian source ISO ships its own
+    # version which may include directives that pull in graphical-installer
+    # menu entries (gtk.cfg, etc.).  We must replace it unconditionally.
+    cat > "$WORK_DIR/isolinux/stdmenu.cfg" <<'STDMENU'
+menu background splash.png
 menu color title    * #FFFFFFFF *
 menu color border   * #00000000 #00000000 none
 menu color sel      * #ffffffff #76a1d0ff *
@@ -201,7 +238,21 @@ menu timeoutrow 16
 menu tabmsgrow 18
 menu tabmsg Press ENTER to boot or TAB to edit a menu entry
 STDMENU
-    fi
+
+    # Remove ALL leftover Debian .cfg files from isolinux/ except the four
+    # we explicitly generate (isolinux.cfg, menu.cfg, wtf.cfg, stdmenu.cfg).
+    # Previous builds used a hardcoded list of stale filenames, but Debian
+    # point releases can introduce new .cfg files (gtk.cfg, adgtk.cfg,
+    # spkgtk.cfg, txt.cfg, drk.cfg, spk.cfg, etc.) that sneak graphical-
+    # installer or other unwanted menu entries back into the boot menu.
+    log "Removing ALL leftover Debian .cfg files from isolinux/..."
+    keep_cfgs="isolinux.cfg|menu.cfg|wtf.cfg|stdmenu.cfg"
+    find "$WORK_DIR/isolinux" -maxdepth 1 -name '*.cfg' \
+        | grep -Ev "/($keep_cfgs)$" \
+        | while read -r stale; do
+            log "  removing $(basename "$stale")"
+            rm -f "$stale"
+        done
 fi
 
 # Boot splash message
@@ -213,10 +264,15 @@ cat > "$WORK_DIR/isolinux/boot.msg" <<'BOOTMSG'
    \ V  V /   | | |  _|   | |___| | | | | |_| |>  <
     \_/\_/    |_| |_|     |_____|_|_| |_|\__,_/_/\_\
 
-  WTF Linux 1.2 Installer
+  WTF Linux 1.2.1 Installer
   Based on Debian 13 (Trixie) - amd64
 
 BOOTMSG
+
+# Generate GRUB splash image
+log "Copying splash image for GRUB (UEFI) boot menu..."
+convert "${PROJECT_DIR}/branding/desolate_city.jpg" "$WORK_DIR/boot/grub/splash.png"
+log "GRUB splash image installed."
 
 # UEFI boot (GRUB)
 if [[ -f "$WORK_DIR/boot/grub/grub.cfg" ]]; then
@@ -231,20 +287,17 @@ if loadfont /boot/grub/font.pf2 ; then
     insmod video_bochs
     insmod video_cirrus
     insmod gfxterm
+    insmod png
     terminal_output gfxterm
+    background_image /boot/grub/splash.png
 fi
 
 set menu_color_normal=cyan/blue
 set menu_color_highlight=white/blue
 set timeout=0
 
-menuentry --hotkey=g "Graphical install" {
-    linux /install.amd/vmlinuz vga=788 preseed/file=/cdrom/preseed.cfg --- quiet
-    initrd /install.amd/initrd.gz
-}
-
 menuentry --hotkey=i "Install" {
-    linux /install.amd/vmlinuz preseed/file=/cdrom/preseed.cfg --- quiet
+    linux /install.amd/vmlinuz preseed/file=/cdrom/preseed.cfg ---
     initrd /install.amd/initrd.gz
 }
 
@@ -261,7 +314,7 @@ submenu --hotkey=a "Advanced options ..." {
     }
 
     menuentry "Automated install (unattended)" {
-        linux /install.amd/vmlinuz auto=true priority=critical preseed/file=/cdrom/preseed.cfg --- quiet
+        linux /install.amd/vmlinuz auto=true priority=critical preseed/file=/cdrom/preseed.cfg ---
         initrd /install.amd/initrd.gz
     }
 }

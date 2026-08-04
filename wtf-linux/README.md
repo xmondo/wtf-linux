@@ -10,7 +10,7 @@ A minimal amd64 Linux distribution based on Debian 13 (Trixie). Installs from a 
 | Architecture | amd64 |
 | Installer | Interactive Debian installer with pre-filled defaults |
 | Boot modes | BIOS (ISOLINUX) and UEFI (GRUB) |
-| Default user | `wtf` (user sets password during install) |
+| Default user | Set during install (user creates account interactively) |
 | Root login | Disabled (sudo) |
 | SSH | openssh-server, enabled on boot, port 22 |
 | Package manager | APT (main, contrib, non-free, non-free-firmware) |
@@ -21,9 +21,8 @@ A minimal amd64 Linux distribution based on Debian 13 (Trixie). Installs from a 
 When booting the ISO, the installer presents:
 
 ```
-WTF Linux 1.2 Installer
+WTF Linux 1.2.1 Installer
 
-  Graphical install          <-- graphical Debian installer
   Install                    <-- text-mode Debian installer (default)
   Advanced options ...
     Expert install           <-- full manual control
@@ -31,7 +30,7 @@ WTF Linux 1.2 Installer
     Automated install        <-- unattended, no prompts
 ```
 
-The **Graphical install** and **Install** options walk through the standard Debian installation screens (language, disk, user account, etc.) with WTF Linux defaults pre-selected. The user can accept or change each setting.
+The **Install** option walks through the standard Debian installation screens with WTF Linux defaults pre-selected. The installer prompts for ALL settings including hostname, network, DNS, and user account creation. The user can accept or change each setting.
 
 ## Included Packages
 
@@ -85,7 +84,7 @@ Partitioning: parted, gdisk, fdisk
 
 ### DNS Utilities
 
-dnsutils (dig, nslookup, nsupdate), bind9-host, bind9-dnsutils, whois, dnstracer, dns-root-data, ldnsutils (drill), libidn2-0, resolvconf, systemd-resolved
+bind9-host, bind9-dnsutils (dig, nslookup, nsupdate), whois, dnstracer, dns-root-data, ldnsutils (drill), libidn2-0, systemd-resolved
 
 ## Building the ISO
 
@@ -103,7 +102,7 @@ sudo ./scripts/build-iso.sh
 sudo ./scripts/build-iso.sh --source /path/to/debian-13.6.0-amd64-netinst.iso
 ```
 
-Output: `output/wtf-linux-1.2-amd64.iso`
+Output: `output/wtf-linux-1.2.1-amd64.iso`
 
 ### Validate the preseed
 
@@ -114,7 +113,7 @@ Output: `output/wtf-linux-1.2-amd64.iso`
 ## Writing to USB
 
 ```bash
-sudo dd if=output/wtf-linux-1.2-amd64.iso of=/dev/sdX bs=4M status=progress
+sudo dd if=output/wtf-linux-1.2.1-amd64.iso of=/dev/sdX bs=4M status=progress
 ```
 
 ## Testing in QEMU
@@ -133,7 +132,7 @@ sudo dd if=output/wtf-linux-1.2-amd64.iso of=/dev/sdX bs=4M status=progress
 SSH into the VM after installation completes:
 
 ```bash
-ssh -p 2222 wtf@localhost
+ssh -p 2222 <user>@localhost
 ```
 
 ## Repository Structure
