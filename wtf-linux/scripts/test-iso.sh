@@ -10,12 +10,21 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="${PROJECT_DIR}/output"
-ISO_FILE="${OUTPUT_DIR}/wtf-linux-1.2.1-amd64.iso"
+VERSION_FILE="${PROJECT_DIR}/config/version"
 DISK_FILE="${OUTPUT_DIR}/wtf-linux-test.qcow2"
 
 MEMORY="2048"
 DISK_SIZE="10G"
 HEADLESS=false
+
+# Locate the latest built WTF Linux ISO (prefer the version in config/version)
+ISO_FILE=""
+WTF_VERSION="$(tr -d '[:space:]' < "$VERSION_FILE" 2>/dev/null || true)"
+if [[ -n "$WTF_VERSION" && -f "${OUTPUT_DIR}/wtf-linux-${WTF_VERSION}-amd64.iso" ]]; then
+    ISO_FILE="${OUTPUT_DIR}/wtf-linux-${WTF_VERSION}-amd64.iso"
+else
+    ISO_FILE="$(find "$OUTPUT_DIR" -maxdepth 1 -name 'wtf-linux-*-amd64.iso' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)"
+fi
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -26,8 +35,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ ! -f "$ISO_FILE" ]]; then
-    echo "ERROR: ISO not found at ${ISO_FILE}"
+if [[ -z "$ISO_FILE" || ! -f "$ISO_FILE" ]]; then
+    echo "ERROR: No WTF Linux ISO found in ${OUTPUT_DIR}"
     echo "Run 'sudo ./scripts/build-iso.sh' first."
     exit 1
 fi
@@ -50,12 +59,14 @@ echo "  ISO:    ${ISO_FILE}"
 echo "  Disk:   ${DISK_FILE}"
 echo "  Memory: ${MEMORY}MB"
 
+# shellcheck disable=SC2054  # QEMU's -netdev syntax legitimately uses commas
 QEMU_ARGS=(
     -m "$MEMORY"
     -cdrom "$ISO_FILE"
     -hda "$DISK_FILE"
     -boot d
-    -net nic -net user,hostfwd=tcp::2222-:22
+    -device e1000,netdev=net0
+    -netdev user,id=net0,hostfwd=tcp::2222-:22
     -cpu host
     -enable-kvm
 )

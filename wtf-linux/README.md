@@ -36,7 +36,7 @@ The **Install** option walks through the standard Debian installation screens wi
 
 ### Core
 
-openssh-server, sudo, curl, wget, vim, htop, less, man-db, bash-completion, ca-certificates, gnupg, lsb-release, apt-transport-https, net-tools, iputils-ping, ufw
+openssh-server, sudo, curl, wget, vim, htop, less, man-db, bash-completion, ca-certificates, gnupg, lsb-release, net-tools, iputils-ping, ufw
 
 ### Ethernet Drivers and Firmware
 
@@ -55,13 +55,15 @@ All major NIC vendors are covered:
 | firmware-myricom | Myricom Myri-10G |
 | firmware-misc-nonfree | Catch-all for remaining drivers |
 
+Note: `firmware-siano` (MDTV receivers) and `reiserfsprogs` (deprecated, removed from kernel 6.13) were intentionally excluded.
+
 Hardware diagnostics: ethtool, pciutils, usbutils
 
 ### Filesystems
 
 | Package | Filesystem |
 |---------|-----------|
-| xfsprogs, xfsdump, xfslibs-dev | XFS (full suite) |
+| xfsprogs, xfsdump | XFS |
 | e2fsprogs | ext2/ext3/ext4 |
 | btrfs-progs | Btrfs |
 | dosfstools | FAT/VFAT |
@@ -69,8 +71,7 @@ Hardware diagnostics: ethtool, pciutils, usbutils
 | exfatprogs | exFAT |
 | f2fs-tools | F2FS |
 | jfsutils | JFS |
-| reiserfsprogs | ReiserFS |
-| hfsprogs, hfsplus, hfsutils | HFS/HFS+ |
+| hfsplus | HFS/HFS+ |
 | nilfs-tools | NILFS2 |
 | udftools | UDF |
 | squashfs-tools | SquashFS |
@@ -146,6 +147,7 @@ wtf-linux/
     validate-preseed.sh        # Preseed linter
     test-iso.sh                # QEMU test launcher
   config/
+    version                    # WTF Linux version (single source of truth)
     apt/sources.list           # APT sources (Debian 13 Trixie)
     ssh/sshd_config.d/
       wtf-linux.conf           # OpenSSH server defaults
@@ -164,6 +166,8 @@ wtf-linux/
 **Change branding:** Edit files in `branding/`, then rebuild.
 
 **Change installer defaults:** Edit the preseed directives (locale, timezone, mirror, hostname, etc.) in `preseed/wtf-linux.preseed`, then rebuild.
+
+**Bump the version:** Edit `config/version` (format `X.Y.Z`). The build script, boot menus, preseed `late_command`, and `test-iso.sh` all read it, so there is no other version number to update.
 
 ## License
 

@@ -4,7 +4,7 @@
 # Remaster a Debian 13 (Trixie) netinst ISO into a WTF Linux installer ISO.
 #
 # Requirements (installed automatically if missing):
-#   xorriso, isolinux, syslinux-utils, cpio, gzip, wget, file
+#   xorriso, isolinux, syslinux-utils, cpio, gzip, wget, file, imagemagick
 #
 # Usage:
 #   sudo ./scripts/build-iso.sh [--source /path/to/debian.iso]
@@ -13,6 +13,12 @@
 # netinst amd64 ISO automatically.
 # =============================================================================
 set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+log()  { echo "[WTF-BUILD] $*"; }
+die()  { echo "[WTF-BUILD] ERROR: $*" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -27,20 +33,19 @@ PRESEED_FILE="${PROJECT_DIR}/preseed/wtf-linux.preseed"
 
 DEBIAN_VERSION="13.6.0"
 DEBIAN_CODENAME="trixie"
+DEBIAN_MAJOR="${DEBIAN_VERSION%%.*}"
 DEBIAN_ARCH="amd64"
 DEBIAN_MIRROR="https://cdimage.debian.org/cdimage/release/${DEBIAN_VERSION}"
 DEBIAN_ISO_NAME="debian-${DEBIAN_VERSION}-${DEBIAN_ARCH}-netinst.iso"
 DEBIAN_ISO_URL="${DEBIAN_MIRROR}/${DEBIAN_ARCH}/iso-cd/${DEBIAN_ISO_NAME}"
 
-WTF_VERSION="1.2.1"
+VERSION_FILE="${PROJECT_DIR}/config/version"
+WTF_VERSION="$(tr -d '[:space:]' < "$VERSION_FILE")"
+if [[ ! "$WTF_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    die "Invalid version '${WTF_VERSION}' in ${VERSION_FILE} (expected X.Y.Z)"
+fi
 WTF_ISO_NAME="wtf-linux-${WTF_VERSION}-${DEBIAN_ARCH}.iso"
 WTF_ISO_LABEL="WTF_Linux_${WTF_VERSION}"
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-log()  { echo "[WTF-BUILD] $*"; }
-die()  { echo "[WTF-BUILD] ERROR: $*" >&2; exit 1; }
 
 check_root() {
     if [[ $EUID -ne 0 ]]; then
@@ -67,6 +72,7 @@ install_deps() {
 
 cleanup() {
     log "Cleaning up..."
+    [[ -n "${MD5_TMP:-}" ]] && rm -f "$MD5_TMP"
     umount "$MOUNT_DIR" 2>/dev/null || true
     rm -rf "$WORK_DIR" "$MOUNT_DIR"
 }
@@ -122,7 +128,8 @@ chmod -R u+w "$WORK_DIR"
 
 # --- Inject preseed ---
 log "Injecting WTF Linux preseed configuration..."
-cp "$PRESEED_FILE" "$WORK_DIR/preseed.cfg"
+# Template the version placeholder (@WTF_VERSION@) from config/version
+sed "s|@WTF_VERSION@|${WTF_VERSION}|g" "$PRESEED_FILE" > "$WORK_DIR/preseed.cfg"
 
 # --- Replace installer splash text in initrd ---
 log "Replacing Debian installer splash with WTF Linux branding..."
@@ -152,7 +159,7 @@ fi
 # Inject the preseed into the initrd as well (belt and suspenders --
 # the preseed is also on /cdrom but having it in the initrd ensures
 # it is found during early installer stages)
-cp "$PRESEED_FILE" "$INITRD_WORK/preseed.cfg"
+sed "s|@WTF_VERSION@|${WTF_VERSION}|g" "$PRESEED_FILE" > "$INITRD_WORK/preseed.cfg"
 
 # Repack initrd
 (cd "$INITRD_WORK" && find . | cpio -H newc -o --quiet | gzip -9 > "$WORK_DIR/install.amd/initrd.gz")
@@ -180,11 +187,11 @@ include menu.cfg
 ISOLINUX_CFG
 
     # Create the menu configuration
-    cat > "$WORK_DIR/isolinux/menu.cfg" <<'MENUCFG'
+    cat > "$WORK_DIR/isolinux/menu.cfg" <<MENUCFG
 menu hshift 0
 menu width 82
 
-menu title WTF Linux 1.2.1 Installer
+menu title WTF Linux ${WTF_VERSION} Installer
 include stdmenu.cfg
 include wtf.cfg
 
@@ -256,7 +263,7 @@ STDMENU
 fi
 
 # Boot splash message
-cat > "$WORK_DIR/isolinux/boot.msg" <<'BOOTMSG'
+cat > "$WORK_DIR/isolinux/boot.msg" <<BOOTMSG
 
  __        _______ _____   _     _
  \ \      / /_   _|  ___| | |   (_)_ __  _   ___  __
@@ -264,8 +271,8 @@ cat > "$WORK_DIR/isolinux/boot.msg" <<'BOOTMSG'
    \ V  V /   | | |  _|   | |___| | | | | |_| |>  <
     \_/\_/    |_| |_|     |_____|_|_| |_|\__,_/_/\_\
 
-  WTF Linux 1.2.1 Installer
-  Based on Debian 13 (Trixie) - amd64
+  WTF Linux ${WTF_VERSION} Installer
+  Based on Debian ${DEBIAN_MAJOR} (${DEBIAN_CODENAME^}) - amd64
 
 BOOTMSG
 
@@ -294,7 +301,7 @@ fi
 
 set menu_color_normal=cyan/blue
 set menu_color_highlight=white/blue
-set timeout=0
+set timeout=-1
 
 menuentry --hotkey=i "Install" {
     linux /install.amd/vmlinuz preseed/file=/cdrom/preseed.cfg ---
@@ -324,13 +331,21 @@ fi
 # --- Inject branding files into the ISO for late_command to copy ---
 log "Adding WTF Linux branding..."
 mkdir -p "$WORK_DIR/wtf-linux"
-cp "${PROJECT_DIR}/branding/motd" "$WORK_DIR/wtf-linux/motd"
+sed -e "s|@WTF_VERSION@|${WTF_VERSION}|g" \
+    -e "s|@DEBIAN_MAJOR@|${DEBIAN_MAJOR}|g" \
+    -e "s|@DEBIAN_CODENAME@|${DEBIAN_CODENAME^}|g" \
+    "${PROJECT_DIR}/branding/motd" > "$WORK_DIR/wtf-linux/motd"
 cp "${PROJECT_DIR}/config/apt/sources.list" "$WORK_DIR/wtf-linux/sources.list"
 cp "${PROJECT_DIR}/config/ssh/sshd_config.d/wtf-linux.conf" "$WORK_DIR/wtf-linux/sshd-wtf-linux.conf"
 
 # --- Regenerate md5sums ---
+# Hash into a temp file outside $WORK_DIR so the checksum file itself is
+# never walked by find, then move it into place.
 log "Regenerating MD5 checksums..."
-(cd "$WORK_DIR" && find . -not -path './isolinux/*' -not -name md5sum.txt -type f -print0 | xargs -0 md5sum > md5sum.txt)
+MD5_TMP="$(mktemp "${PROJECT_DIR}/md5sum.XXXXXX")"
+(cd "$WORK_DIR" && find . -not -path './isolinux/*' -not -name md5sum.txt -type f -print0 | xargs -0 md5sum > "$MD5_TMP")
+mv "$MD5_TMP" "$WORK_DIR/md5sum.txt"
+MD5_TMP=""
 
 # --- Build the new ISO ---
 log "Building WTF Linux ISO..."

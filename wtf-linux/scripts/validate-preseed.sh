@@ -16,8 +16,9 @@ if [[ ! -f "$PRESEED_FILE" ]]; then
 fi
 
 errors=0
+warnings=0
 
-# Check for required directives
+# Check for required directives (hard failures)
 required_directives=(
     "d-i debian-installer/locale"
     "d-i mirror/http/hostname"
@@ -29,7 +30,7 @@ required_directives=(
 
 for directive in "${required_directives[@]}"; do
     if ! grep -q "^${directive}" "$PRESEED_FILE"; then
-        echo "[VALIDATE] WARNING: Missing directive: ${directive}"
+        echo "[VALIDATE] ERROR: Missing directive: ${directive}"
         ((errors++))
     fi
 done
@@ -46,16 +47,20 @@ if ! grep -q "ssh-server" "$PRESEED_FILE"; then
     ((errors++))
 fi
 
-# Check for trixie/debian 13
+# Check for trixie/debian 13 (advisory only)
 if ! grep -q "trixie" "$PRESEED_FILE"; then
     echo "[VALIDATE] WARNING: No reference to 'trixie' (Debian 13) found"
-    ((errors++))
+    ((warnings++))
 fi
 
 if [[ $errors -eq 0 ]]; then
-    echo "[VALIDATE] Preseed file looks good! No issues found."
+    if [[ $warnings -eq 0 ]]; then
+        echo "[VALIDATE] Preseed file looks good! No issues found."
+    else
+        echo "[VALIDATE] No errors. ${warnings} warning(s)."
+    fi
 else
-    echo "[VALIDATE] Found ${errors} issue(s). Review the warnings above."
+    echo "[VALIDATE] Found ${errors} error(s) and ${warnings} warning(s). Review the output above."
 fi
 
 exit $errors
