@@ -69,16 +69,14 @@ QEMU_ARGS=(
     -netdev user,id=net0,hostfwd=tcp::2222-:22
     -cpu host
     -enable-kvm
-    -serial mon:stdio
 )
 
 if $HEADLESS; then
     QEMU_ARGS+=(-nographic -serial mon:stdio)
     echo "  Mode:   Headless (serial console)"
-    echo "  SSH:    ssh -p 2222 <user>@localhost (after install completes)"
 else
     echo "  Mode:   Graphical (QEMU display)"
-    echo "  SSH:    ssh -p 2222 <user>@localhost (after install completes)"
 fi
+echo "  SSH:    ssh -p 2222 <user>@localhost (after install completes)"
 
 qemu-system-x86_64 "${QEMU_ARGS[@]}"
