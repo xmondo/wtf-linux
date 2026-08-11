@@ -59,16 +59,17 @@ echo "  ISO:    ${ISO_FILE}"
 echo "  Disk:   ${DISK_FILE}"
 echo "  Memory: ${MEMORY}MB"
 
-# shellcheck disable=SC2054  # QEMU's -device/-netdev syntax legitimately uses commas
+# shellcheck disable=SC2054  # QEMU's -netdev syntax legitimately uses commas
 QEMU_ARGS=(
     -m "$MEMORY"
     -cdrom "$ISO_FILE"
-    -drive file="$DISK_FILE",if=virtio,format=qcow2
+    -hda "$DISK_FILE"
     -boot d
     -device virtio-net-pci,netdev=net0
     -netdev user,id=net0,hostfwd=tcp::2222-:22
     -cpu host
     -enable-kvm
+    -vga cirrus
 )
 
 if $HEADLESS; then
