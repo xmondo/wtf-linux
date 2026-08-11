@@ -178,6 +178,7 @@ log "ISOLINUX splash image installed."
 if [[ -f "$WORK_DIR/isolinux/isolinux.cfg" ]]; then
     cat > "$WORK_DIR/isolinux/isolinux.cfg" <<'ISOLINUX_CFG'
 # WTF Linux ISOLINUX configuration
+serial 0 115200
 default vesamenu.c32
 timeout 0
 prompt 0
@@ -202,17 +203,17 @@ menu begin advanced
     label expert
         menu label ^Expert install
         kernel /install.amd/vmlinuz
-        append priority=low initrd=/install.amd/initrd.gz ---
+        append priority=low console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
 
     label rescue
         menu label ^Rescue mode
         kernel /install.amd/vmlinuz
-        append rescue/enable=true priority=low initrd=/install.amd/initrd.gz ---
+        append rescue/enable=true priority=low console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
 
     label auto
         menu label ^Automated install (unattended)
         kernel /install.amd/vmlinuz
-        append auto=true priority=critical preseed/file=/cdrom/preseed.cfg initrd=/install.amd/initrd.gz ---
+        append auto=true priority=critical preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
 
     menu end
 MENUCFG
@@ -223,7 +224,7 @@ label install
     menu label ^Install
     menu default
     kernel /install.amd/vmlinuz
-    append preseed/file=/cdrom/preseed.cfg initrd=/install.amd/initrd.gz ---
+    append preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
 WTFCFG
 
     # Always overwrite stdmenu.cfg -- the Debian source ISO ships its own
@@ -284,7 +285,13 @@ log "GRUB splash image installed."
 # UEFI boot (GRUB)
 if [[ -f "$WORK_DIR/boot/grub/grub.cfg" ]]; then
     cat > "$WORK_DIR/boot/grub/grub.cfg" <<'GRUB_CFG'
-# WTF Linux GRUB configuration (UEFI)
+# WTF Linux GRUB configuration (UEFI, VM-optimized)
+
+# Serial console so the boot menu is visible on headless VMs
+insmod serial
+serial --speed=115200 --unit=0
+terminal_input serial console
+terminal_output serial console
 
 if loadfont /boot/grub/font.pf2 ; then
     set gfxmode=800x600
@@ -295,7 +302,7 @@ if loadfont /boot/grub/font.pf2 ; then
     insmod video_cirrus
     insmod gfxterm
     insmod png
-    terminal_output gfxterm
+    terminal_output gfxterm serial
     background_image /boot/grub/splash.png
 fi
 
@@ -304,24 +311,24 @@ set menu_color_highlight=white/blue
 set timeout=-1
 
 menuentry --hotkey=i "Install" {
-    linux /install.amd/vmlinuz preseed/file=/cdrom/preseed.cfg ---
+    linux /install.amd/vmlinuz preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 ---
     initrd /install.amd/initrd.gz
 }
 
 submenu --hotkey=a "Advanced options ..." {
 
     menuentry "Expert install" {
-        linux /install.amd/vmlinuz priority=low ---
+        linux /install.amd/vmlinuz priority=low console=tty0 console=ttyS0,115200 ---
         initrd /install.amd/initrd.gz
     }
 
     menuentry "Rescue mode" {
-        linux /install.amd/vmlinuz rescue/enable=true priority=low ---
+        linux /install.amd/vmlinuz rescue/enable=true priority=low console=tty0 console=ttyS0,115200 ---
         initrd /install.amd/initrd.gz
     }
 
     menuentry "Automated install (unattended)" {
-        linux /install.amd/vmlinuz auto=true priority=critical preseed/file=/cdrom/preseed.cfg ---
+        linux /install.amd/vmlinuz auto=true priority=critical preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 ---
         initrd /install.amd/initrd.gz
     }
 }
@@ -371,5 +378,5 @@ log "Output: ${OUTPUT_DIR}/${WTF_ISO_NAME}"
 log "Size: $(du -h "${OUTPUT_DIR}/${WTF_ISO_NAME}" | cut -f1)"
 log "============================================="
 log ""
-log "To write to USB: sudo dd if=${OUTPUT_DIR}/${WTF_ISO_NAME} of=/dev/sdX bs=4M status=progress"
-log "To test in VM:   qemu-system-x86_64 -m 2048 -cdrom ${OUTPUT_DIR}/${WTF_ISO_NAME} -boot d"
+log "To test in QEMU:  ./scripts/test-iso.sh"
+log "To test headless:  ./scripts/test-iso.sh --headless"

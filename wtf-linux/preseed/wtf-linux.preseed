@@ -54,7 +54,9 @@ d-i apt-setup/use_mirror boolean true
 d-i apt-setup/services-select multiselect security, updates
 
 # --- Package Selection ---
-# Minimal system + SSH server + all ethernet drivers, no desktop environment
+# Minimal VM server: SSH, guest agents, virtio-ready, no desktop environment.
+# Physical NIC firmware is omitted -- VMs use virtio/emulated NICs with
+# in-kernel drivers that require no firmware blobs.
 tasksel tasksel/first multiselect ssh-server, standard
 d-i pkgsel/include string \
     openssh-server \
@@ -72,42 +74,20 @@ d-i pkgsel/include string \
     man-db \
     less \
     ufw \
-    firmware-linux \
-    firmware-linux-nonfree \
-    firmware-linux-free \
-    firmware-realtek \
-    firmware-intel-misc \
-    firmware-bnx2 \
-    firmware-bnx2x \
-    firmware-netronome \
-    firmware-qlogic \
-    firmware-cavium \
-    firmware-myricom \
-    firmware-misc-nonfree \
+    qemu-guest-agent \
+    open-vm-tools \
+    spice-vdagent \
+    acpid \
     ethtool \
     pciutils \
-    usbutils \
     xfsprogs \
     xfsdump \
     btrfs-progs \
     e2fsprogs \
     dosfstools \
-    ntfs-3g \
-    exfatprogs \
-    f2fs-tools \
-    jfsutils \
-    hfsplus \
-    nilfs-tools \
-    udftools \
-    squashfs-tools \
-    erofs-utils \
-    cramfsswap \
-    mtools \
     lvm2 \
-    mdadm \
     cryptsetup \
     dmsetup \
-    multipath-tools \
     nfs-common \
     cifs-utils \
     sshfs \
@@ -130,6 +110,11 @@ d-i pkgsel/upgrade select full-upgrade
 # Popularity contest
 popularity-contest popularity-contest/participate boolean false
 
+# --- Kernel options (VM-optimized) ---
+# Enable serial console on the installed system so headless VMs are
+# accessible via the hypervisor's serial/console interface.
+d-i debian-installer/add-kernel-opts string console=tty0 console=ttyS0,115200
+
 # --- GRUB ---
 d-i grub-installer/only_debian boolean true
 d-i grub-installer/with_other_os boolean false
@@ -147,6 +132,9 @@ d-i preseed/late_command string \
     in-target systemctl enable systemd-resolved ; \
     in-target ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf ; \
     in-target systemctl enable ssh ; \
+    in-target systemctl enable qemu-guest-agent.service 2>/dev/null || true ; \
+    in-target systemctl enable acpid.service ; \
+    in-target systemctl enable serial-getty@ttyS0.service ; \
     cp /cdrom/wtf-linux/motd /target/etc/motd ; \
     cp /cdrom/wtf-linux/sources.list /target/etc/apt/sources.list ; \
     mkdir -p /target/etc/ssh/sshd_config.d ; \

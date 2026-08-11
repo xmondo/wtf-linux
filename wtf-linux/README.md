@@ -1,6 +1,6 @@
 # WTF Linux
 
-A minimal amd64 Linux distribution based on Debian 13 (Trixie). Installs from a bootable ISO with a standard interactive Debian installer, pre-filled with sensible defaults. Ships with OpenSSH server, all ethernet drivers, full filesystem support, and DNS utilities out of the box.
+A minimal, VM-optimized amd64 Linux distribution based on Debian 13 (Trixie). Installs from a bootable ISO with a standard interactive Debian installer, pre-filled with sensible defaults. Ships with OpenSSH server, hypervisor guest agents, serial console, full filesystem support, and DNS utilities out of the box.
 
 ## Specifications
 
@@ -8,17 +8,19 @@ A minimal amd64 Linux distribution based on Debian 13 (Trixie). Installs from a 
 |----------|-------|
 | Base | Debian 13 (Trixie) |
 | Architecture | amd64 |
+| Target | Virtual machines (QEMU/KVM, Proxmox, VMware, Hyper-V) |
 | Installer | Interactive Debian installer with pre-filled defaults |
-| Boot modes | BIOS (ISOLINUX) and UEFI (GRUB) |
+| Boot modes | BIOS (ISOLINUX) and UEFI (GRUB), both with serial console |
 | Default user | Set during install (user creates account interactively) |
 | Root login | Disabled (sudo) |
 | SSH | openssh-server, enabled on boot, port 22 |
+| Serial console | ttyS0 @ 115200 baud (installer and installed system) |
 | Package manager | APT (main, contrib, non-free, non-free-firmware) |
 | Desktop | None (server/minimal) |
 
 ## Boot Menu
 
-When booting the ISO, the installer presents:
+When booting the ISO, the installer presents (visible on both VGA and serial console):
 
 ```
 WTF Linux 1.2.1 Installer
@@ -38,26 +40,16 @@ The **Install** option walks through the standard Debian installation screens wi
 
 openssh-server, sudo, curl, wget, vim, htop, less, man-db, bash-completion, ca-certificates, gnupg, lsb-release, net-tools, iputils-ping, ufw
 
-### Ethernet Drivers and Firmware
+### VM Guest Agents
 
-All major NIC vendors are covered:
+| Package | Hypervisor |
+|---------|-----------|
+| qemu-guest-agent | QEMU/KVM, Proxmox VE |
+| open-vm-tools | VMware ESXi/Workstation |
+| spice-vdagent | SPICE protocol (Proxmox, virt-manager) |
+| acpid | Graceful shutdown/reboot from any hypervisor |
 
-| Package | Coverage |
-|---------|----------|
-| firmware-linux | Metapackage (all free + non-free firmware) |
-| firmware-realtek | RTL8111/8168/8169, USB NICs |
-| firmware-intel-misc | Intel NIC microcode |
-| firmware-bnx2 | Broadcom NetXtreme II (1GbE) |
-| firmware-bnx2x | Broadcom NetXtreme II (10GbE) |
-| firmware-netronome | Netronome SmartNICs |
-| firmware-qlogic | QLogic converged/Fibre Channel |
-| firmware-cavium | Cavium/Marvell LiquidIO, ThunderX |
-| firmware-myricom | Myricom Myri-10G |
-| firmware-misc-nonfree | Catch-all for remaining drivers |
-
-Note: `firmware-siano` (MDTV receivers) and `reiserfsprogs` (deprecated, removed from kernel 6.13) were intentionally excluded.
-
-Hardware diagnostics: ethtool, pciutils, usbutils
+Physical NIC firmware is omitted -- VMs use virtio or emulated NICs with in-kernel drivers that require no firmware blobs.
 
 ### Filesystems
 
@@ -67,21 +59,14 @@ Hardware diagnostics: ethtool, pciutils, usbutils
 | e2fsprogs | ext2/ext3/ext4 |
 | btrfs-progs | Btrfs |
 | dosfstools | FAT/VFAT |
-| ntfs-3g | NTFS (read/write) |
-| exfatprogs | exFAT |
-| f2fs-tools | F2FS |
-| jfsutils | JFS |
-| hfsplus | HFS/HFS+ |
-| nilfs-tools | NILFS2 |
-| udftools | UDF |
-| squashfs-tools | SquashFS |
-| erofs-utils | EROFS |
 
-Storage management: lvm2, mdadm, cryptsetup, dmsetup, multipath-tools
+Storage management: lvm2, cryptsetup, dmsetup
 
 Network filesystems: nfs-common, cifs-utils, sshfs, fuse3
 
 Partitioning: parted, gdisk, fdisk
+
+Hardware diagnostics: ethtool, pciutils
 
 ### DNS Utilities
 
@@ -91,7 +76,7 @@ bind9-host, bind9-dnsutils (dig, nslookup, nsupdate), whois, dnstracer, dns-root
 
 ### Prerequisites
 
-A Debian or Ubuntu build host with root access. Build dependencies (xorriso, isolinux, syslinux-utils, cpio, gzip, wget, file) are installed automatically if missing.
+A Debian or Ubuntu build host with root access. Build dependencies (xorriso, isolinux, syslinux-utils, cpio, gzip, wget, file, imagemagick) are installed automatically if missing.
 
 ### Build
 
@@ -111,19 +96,15 @@ Output: `output/wtf-linux-1.2.1-amd64.iso`
 ./scripts/validate-preseed.sh
 ```
 
-## Writing to USB
-
-```bash
-sudo dd if=output/wtf-linux-1.2.1-amd64.iso of=/dev/sdX bs=4M status=progress
-```
-
 ## Testing in QEMU
 
+The test script launches a QEMU VM with virtio disk and virtio-net:
+
 ```bash
-# Graphical
+# Graphical (serial output on stdout)
 ./scripts/test-iso.sh
 
-# Headless (serial console)
+# Headless (serial console only, no GUI window)
 ./scripts/test-iso.sh --headless
 
 # Custom resources
@@ -136,6 +117,33 @@ SSH into the VM after installation completes:
 ssh -p 2222 <user>@localhost
 ```
 
+## VM Deployment
+
+### Proxmox VE
+
+1. Upload the ISO to a Proxmox storage (local, NFS, etc.)
+2. Create a VM: VirtIO SCSI disk, VirtIO NIC, OVMF (UEFI) or SeaBIOS
+3. Attach the ISO as CD/DVD and boot
+4. After install, `qemu-guest-agent` reports IP/status to Proxmox automatically
+
+### VMware ESXi
+
+1. Upload the ISO to a datastore
+2. Create a VM with Guest OS = Debian 13 (64-bit)
+3. Boot and install; `open-vm-tools` starts automatically
+
+### Generic QEMU/KVM
+
+```bash
+qemu-img create -f qcow2 wtf-linux.qcow2 20G
+qemu-system-x86_64 -m 2048 -enable-kvm -cpu host \
+    -drive file=wtf-linux.qcow2,if=virtio,format=qcow2 \
+    -device virtio-net-pci,netdev=n0 \
+    -netdev user,id=n0,hostfwd=tcp::2222-:22 \
+    -cdrom output/wtf-linux-1.2.1-amd64.iso -boot d \
+    -serial mon:stdio
+```
+
 ## Repository Structure
 
 ```
@@ -145,7 +153,7 @@ wtf-linux/
   scripts/
     build-iso.sh               # ISO build script (run as root)
     validate-preseed.sh        # Preseed linter
-    test-iso.sh                # QEMU test launcher
+    test-iso.sh                # QEMU test launcher (virtio)
   config/
     version                    # WTF Linux version (single source of truth)
     apt/sources.list           # APT sources (Debian 13 Trixie)
