@@ -4,7 +4,8 @@
 # Remaster a Debian 13 (Trixie) netinst ISO into a WTF Linux installer ISO.
 #
 # Requirements (installed automatically if missing):
-#   xorriso, isolinux, syslinux-utils, cpio, gzip, wget, file, imagemagick
+#   xorriso, isolinux, syslinux-utils, cpio, gzip, zstd, xz-utils, wget,
+#   file, imagemagick
 #
 # Usage:
 #   sudo ./scripts/build-iso.sh [--source /path/to/debian.iso]
@@ -55,7 +56,7 @@ check_root() {
 
 install_deps() {
     log "Checking build dependencies..."
-    local deps=(xorriso isolinux syslinux-utils cpio gzip wget file imagemagick)
+    local deps=(xorriso isolinux syslinux-utils cpio gzip zstd xz-utils wget file imagemagick)
     local missing=()
     for pkg in "${deps[@]}"; do
         if ! dpkg -s "$pkg" &>/dev/null; then
@@ -135,8 +136,32 @@ sed "s|@WTF_VERSION@|${WTF_VERSION}|g" "$PRESEED_FILE" > "$WORK_DIR/preseed.cfg"
 log "Replacing Debian installer splash with WTF Linux branding..."
 INITRD_WORK=$(mktemp -d "${WORK_DIR}/initrd.XXXXXX")
 
+# Detect initrd compression format
+INITRD_PATH="$WORK_DIR/install.amd/initrd.gz"
+INITRD_TYPE="$(file -b "$INITRD_PATH")"
+case "$INITRD_TYPE" in
+    gzip\ compressed*)
+        INITRD_DECOMPRESS="gzip -dc"
+        INITRD_COMPRESS="gzip -9"
+        log "Detected gzip-compressed initrd."
+        ;;
+    Zstandard\ compressed*|zstd\ compressed*)
+        INITRD_DECOMPRESS="zstd -dc"
+        INITRD_COMPRESS="zstd -19 -T0"
+        log "Detected zstd-compressed initrd."
+        ;;
+    XZ\ compressed*|LZMA\ compressed*)
+        INITRD_DECOMPRESS="xz -dc"
+        INITRD_COMPRESS="xz -9 --check=crc32"
+        log "Detected xz/LZMA-compressed initrd."
+        ;;
+    *)
+        die "Unrecognised initrd compression format: ${INITRD_TYPE}"
+        ;;
+esac
+
 # Extract initrd
-(cd "$INITRD_WORK" && gzip -dc "$WORK_DIR/install.amd/initrd.gz" | cpio -id --quiet 2>/dev/null)
+(cd "$INITRD_WORK" && $INITRD_DECOMPRESS "$INITRD_PATH" | cpio -id --quiet 2>/dev/null)
 
 # Replace the installer splash/banner text if present
 # The Debian installer uses /usr/share/graphics/logo_debian.png for graphical
@@ -161,8 +186,8 @@ fi
 # it is found during early installer stages)
 sed "s|@WTF_VERSION@|${WTF_VERSION}|g" "$PRESEED_FILE" > "$INITRD_WORK/preseed.cfg"
 
-# Repack initrd
-(cd "$INITRD_WORK" && find . | cpio -H newc -o --quiet | gzip -9 > "$WORK_DIR/install.amd/initrd.gz")
+# Repack initrd using the same compression format as the original
+(cd "$INITRD_WORK" && find . | cpio -H newc -o --quiet | $INITRD_COMPRESS > "$INITRD_PATH")
 rm -rf "$INITRD_WORK"
 log "Initrd repacked with WTF Linux branding and preseed."
 
