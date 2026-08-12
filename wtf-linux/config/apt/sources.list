@@ -1,11 +1,14 @@
-# WTF Linux APT Sources (Debian 13 Trixie)
-# This file is installed by the WTF Linux preseed/late_command
+# WTF Linux APT Sources (Ubuntu 24.04 LTS Noble Numbat)
+# This file is installed by the WTF Linux autoinstall late-commands
 
-deb https://deb.debian.org/debian trixie main contrib non-free non-free-firmware
-deb-src https://deb.debian.org/debian trixie main contrib non-free non-free-firmware
+deb http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse
 
-deb https://deb.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
-deb-src https://deb.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
+deb http://security.ubuntu.com/ubuntu noble-security main restricted universe multiverse
+deb-src http://security.ubuntu.com/ubuntu noble-security main restricted universe multiverse
 
-deb https://deb.debian.org/debian trixie-updates main contrib non-free non-free-firmware
-deb-src https://deb.debian.org/debian trixie-updates main contrib non-free non-free-firmware
+deb http://archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse
+
+deb http://archive.ubuntu.com/ubuntu noble-backports main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu noble-backports main restricted universe multiverse

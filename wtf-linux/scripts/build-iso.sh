@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # =============================================================================
 # WTF Linux ISO Builder
-# Remaster a Debian 13 (Trixie) netinst ISO into a WTF Linux installer ISO.
+# Remaster an Ubuntu 24.04 LTS (Noble Numbat) live server ISO into a
+# WTF Linux installer ISO with autoinstall configuration.
 #
 # Requirements (installed automatically if missing):
-#   xorriso, isolinux, syslinux-utils, cpio, gzip, zstd, xz-utils, wget,
-#   file, imagemagick
+#   xorriso, p7zip-full, wget, file, imagemagick, fdisk
 #
 # Usage:
-#   sudo ./scripts/build-iso.sh [--source /path/to/debian.iso]
+#   sudo ./scripts/build-iso.sh [--source /path/to/ubuntu.iso]
 #
-# If --source is not provided the script downloads the latest Debian 13
-# netinst amd64 ISO automatically.
+# If --source is not provided the script downloads the latest Ubuntu 24.04
+# LTS Server amd64 ISO automatically.
 # =============================================================================
 set -euo pipefail
 
@@ -30,22 +30,22 @@ CACHE_DIR="${PROJECT_DIR}/cache"
 OUTPUT_DIR="${PROJECT_DIR}/output"
 WORK_DIR="${PROJECT_DIR}/isowork"
 MOUNT_DIR="${PROJECT_DIR}/isomount"
-PRESEED_FILE="${PROJECT_DIR}/preseed/wtf-linux.preseed"
+AUTOINSTALL_DIR="${PROJECT_DIR}/autoinstall"
 
-DEBIAN_VERSION="13.6.0"
-DEBIAN_CODENAME="trixie"
-DEBIAN_MAJOR="${DEBIAN_VERSION%%.*}"
-DEBIAN_ARCH="amd64"
-DEBIAN_MIRROR="https://cdimage.debian.org/cdimage/release/${DEBIAN_VERSION}"
-DEBIAN_ISO_NAME="debian-${DEBIAN_VERSION}-${DEBIAN_ARCH}-netinst.iso"
-DEBIAN_ISO_URL="${DEBIAN_MIRROR}/${DEBIAN_ARCH}/iso-cd/${DEBIAN_ISO_NAME}"
+UBUNTU_VERSION="24.04.4"
+UBUNTU_CODENAME="noble"
+UBUNTU_RELEASE="24.04"
+UBUNTU_ARCH="amd64"
+UBUNTU_MIRROR="https://releases.ubuntu.com/${UBUNTU_RELEASE}"
+UBUNTU_ISO_NAME="ubuntu-${UBUNTU_VERSION}-live-server-${UBUNTU_ARCH}.iso"
+UBUNTU_ISO_URL="${UBUNTU_MIRROR}/${UBUNTU_ISO_NAME}"
 
 VERSION_FILE="${PROJECT_DIR}/config/version"
 WTF_VERSION="$(tr -d '[:space:]' < "$VERSION_FILE")"
-if [[ ! "$WTF_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    die "Invalid version '${WTF_VERSION}' in ${VERSION_FILE} (expected X.Y.Z)"
+if [[ ! "$WTF_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+    die "Invalid version '${WTF_VERSION}' in ${VERSION_FILE} (expected X.Y or X.Y.Z)"
 fi
-WTF_ISO_NAME="wtf-linux-${WTF_VERSION}-${DEBIAN_ARCH}.iso"
+WTF_ISO_NAME="wtf-linux-${WTF_VERSION}-${UBUNTU_ARCH}.iso"
 WTF_ISO_LABEL="WTF_Linux_${WTF_VERSION}"
 
 check_root() {
@@ -56,7 +56,7 @@ check_root() {
 
 install_deps() {
     log "Checking build dependencies..."
-    local deps=(xorriso isolinux syslinux-utils cpio gzip zstd xz-utils wget file imagemagick)
+    local deps=(xorriso p7zip-full wget file imagemagick fdisk)
     local missing=()
     for pkg in "${deps[@]}"; do
         if ! dpkg -s "$pkg" &>/dev/null; then
@@ -73,7 +73,6 @@ install_deps() {
 
 cleanup() {
     log "Cleaning up..."
-    [[ -n "${MD5_TMP:-}" ]] && rm -f "$MD5_TMP"
     umount "$MOUNT_DIR" 2>/dev/null || true
     rm -rf "$WORK_DIR" "$MOUNT_DIR"
 }
@@ -99,16 +98,16 @@ install_deps
 
 mkdir -p "$CACHE_DIR" "$OUTPUT_DIR"
 
-# --- Download Debian ISO if needed ---
+# --- Download Ubuntu ISO if needed ---
 if [[ -z "$SOURCE_ISO" ]]; then
-    SOURCE_ISO="${CACHE_DIR}/${DEBIAN_ISO_NAME}"
+    SOURCE_ISO="${CACHE_DIR}/${UBUNTU_ISO_NAME}"
     if [[ ! -f "$SOURCE_ISO" ]]; then
-        log "Downloading Debian ${DEBIAN_VERSION} netinst ISO..."
-        log "URL: ${DEBIAN_ISO_URL}"
-        wget --no-verbose --show-progress -O "$SOURCE_ISO" "$DEBIAN_ISO_URL" || \
-            die "Failed to download Debian ISO. You can manually download it and pass --source /path/to/iso"
+        log "Downloading Ubuntu ${UBUNTU_VERSION} live server ISO..."
+        log "URL: ${UBUNTU_ISO_URL}"
+        wget --no-verbose --show-progress -O "$SOURCE_ISO" "$UBUNTU_ISO_URL" || \
+            die "Failed to download Ubuntu ISO. You can manually download it and pass --source /path/to/iso"
     else
-        log "Using cached Debian ISO: ${SOURCE_ISO}"
+        log "Using cached Ubuntu ISO: ${SOURCE_ISO}"
     fi
 fi
 
@@ -127,189 +126,33 @@ rmdir "$MOUNT_DIR"
 # Make the extracted tree writable
 chmod -R u+w "$WORK_DIR"
 
-# --- Inject preseed ---
-log "Injecting WTF Linux preseed configuration..."
-# Template the version placeholder (@WTF_VERSION@) from config/version
-sed "s|@WTF_VERSION@|${WTF_VERSION}|g" "$PRESEED_FILE" > "$WORK_DIR/preseed.cfg"
+# --- Inject autoinstall configuration ---
+log "Injecting WTF Linux autoinstall configuration..."
+mkdir -p "$WORK_DIR/autoinstall"
 
-# --- Replace installer splash text in initrd ---
-log "Replacing Debian installer splash with WTF Linux branding..."
-INITRD_WORK=$(mktemp -d "${WORK_DIR}/initrd.XXXXXX")
+# Template the version placeholder (@WTF_VERSION@) in user-data
+sed "s|@WTF_VERSION@|${WTF_VERSION}|g" "$AUTOINSTALL_DIR/user-data" > "$WORK_DIR/autoinstall/user-data"
+cp "$AUTOINSTALL_DIR/meta-data" "$WORK_DIR/autoinstall/meta-data"
 
-# Detect initrd compression format
-INITRD_PATH="$WORK_DIR/install.amd/initrd.gz"
-INITRD_TYPE="$(file -b "$INITRD_PATH")"
-case "$INITRD_TYPE" in
-    gzip\ compressed*)
-        INITRD_DECOMPRESS="gzip -dc"
-        INITRD_COMPRESS="gzip -9"
-        log "Detected gzip-compressed initrd."
-        ;;
-    Zstandard\ compressed*|zstd\ compressed*)
-        INITRD_DECOMPRESS="zstd -dc"
-        INITRD_COMPRESS="zstd -19 -T0"
-        log "Detected zstd-compressed initrd."
-        ;;
-    XZ\ compressed*|LZMA\ compressed*)
-        INITRD_DECOMPRESS="xz -dc"
-        INITRD_COMPRESS="xz -9 --check=crc32"
-        log "Detected xz/LZMA-compressed initrd."
-        ;;
-    *)
-        die "Unrecognised initrd compression format: ${INITRD_TYPE}"
-        ;;
-esac
+# --- Inject branding and config files into autoinstall directory ---
+# These are copied to the target system by autoinstall late-commands
+log "Adding WTF Linux branding and configuration files..."
+sed -e "s|@WTF_VERSION@|${WTF_VERSION}|g" \
+    -e "s|@UBUNTU_RELEASE@|${UBUNTU_RELEASE}|g" \
+    -e "s|@UBUNTU_CODENAME@|${UBUNTU_CODENAME^}|g" \
+    "${PROJECT_DIR}/branding/motd" > "$WORK_DIR/autoinstall/motd"
+cp "${PROJECT_DIR}/config/apt/sources.list" "$WORK_DIR/autoinstall/sources.list"
+cp "${PROJECT_DIR}/config/ssh/sshd_config.d/wtf-linux.conf" "$WORK_DIR/autoinstall/sshd-wtf-linux.conf"
 
-# Extract initrd
-(cd "$INITRD_WORK" && $INITRD_DECOMPRESS "$INITRD_PATH" | cpio -id --quiet 2>/dev/null)
+# --- Modify GRUB boot menu to include autoinstall parameters ---
+log "Configuring GRUB boot menu..."
 
-# Replace the installer splash/banner text if present
-# The Debian installer uses /usr/share/graphics/logo_debian.png for graphical
-# installs and displays version info from various places.
-# For text-mode installs the key branding is in the preseed and boot menu,
-# but we can also replace the installer's internal banner strings.
-
-# Create a WTF Linux text banner for the installer
-if [[ -d "$INITRD_WORK/usr/share/debian-installer" ]]; then
-    echo "WTF Linux ${WTF_VERSION} Installer" > "$INITRD_WORK/usr/share/debian-installer/build-id" 2>/dev/null || true
-fi
-
-# Replace the Debian logo with the WTF Linux splash image
-if [[ -d "$INITRD_WORK/usr/share/graphics" ]]; then
-    log "Converting branding/desolate_city.jpg to PNG and replacing logo_debian.png in initrd..."
-    convert "${PROJECT_DIR}/branding/desolate_city.jpg" "$INITRD_WORK/usr/share/graphics/logo_debian.png"
-    log "Installer splash image replaced with desolate_city.jpg."
-fi
-
-# Inject the preseed into the initrd as well (belt and suspenders --
-# the preseed is also on /cdrom but having it in the initrd ensures
-# it is found during early installer stages)
-sed "s|@WTF_VERSION@|${WTF_VERSION}|g" "$PRESEED_FILE" > "$INITRD_WORK/preseed.cfg"
-
-# Repack initrd using the same compression format as the original
-(cd "$INITRD_WORK" && find . | cpio -H newc -o --quiet | $INITRD_COMPRESS > "$INITRD_PATH")
-rm -rf "$INITRD_WORK"
-log "Initrd repacked with WTF Linux branding and preseed."
-
-# --- Modify ISOLINUX boot menu for interactive install ---
-log "Configuring boot menu for interactive install with WTF defaults..."
-
-# Generate ISOLINUX splash image (640x480 PNG for vesamenu.c32)
-log "Converting branding/desolate_city.jpg to 640x480 PNG for ISOLINUX splash..."
-convert "${PROJECT_DIR}/branding/desolate_city.jpg" -resize 640x480! "$WORK_DIR/isolinux/splash.png"
-log "ISOLINUX splash image installed."
-
-# BIOS boot (isolinux)
-if [[ -f "$WORK_DIR/isolinux/isolinux.cfg" ]]; then
-    cat > "$WORK_DIR/isolinux/isolinux.cfg" <<'ISOLINUX_CFG'
-# WTF Linux ISOLINUX configuration
-default vesamenu.c32
-timeout 0
-prompt 0
-display boot.msg
-
-include menu.cfg
-ISOLINUX_CFG
-
-    # Create the menu configuration
-    cat > "$WORK_DIR/isolinux/menu.cfg" <<MENUCFG
-menu hshift 0
-menu width 82
-
-menu title WTF Linux ${WTF_VERSION} Installer
-include stdmenu.cfg
-include wtf.cfg
-
-menu begin advanced
-    menu title Advanced options
-    include stdmenu.cfg
-
-    label expert
-        menu label ^Expert install
-        kernel /install.amd/vmlinuz
-        append priority=low vga=788 initrd=/install.amd/initrd.gz ---
-
-    label rescue
-        menu label ^Rescue mode
-        kernel /install.amd/vmlinuz
-        append vga=788 rescue/enable=true initrd=/install.amd/initrd.gz --- quiet
-
-    label auto
-        menu label ^Automated install (unattended)
-        kernel /install.amd/vmlinuz
-        append auto=true priority=critical vga=788 preseed/file=/cdrom/preseed.cfg initrd=/install.amd/initrd.gz --- quiet
-
-    menu end
-MENUCFG
-
-    # Create the WTF Linux menu entries
-    cat > "$WORK_DIR/isolinux/wtf.cfg" <<'WTFCFG'
-label install
-    menu label ^Install
-    menu default
-    kernel /install.amd/vmlinuz
-    append vga=788 preseed/file=/cdrom/preseed.cfg initrd=/install.amd/initrd.gz --- quiet
-WTFCFG
-
-    # Always overwrite stdmenu.cfg -- the Debian source ISO ships its own
-    # version which may include directives that pull in graphical-installer
-    # menu entries (gtk.cfg, etc.).  We must replace it unconditionally.
-    cat > "$WORK_DIR/isolinux/stdmenu.cfg" <<'STDMENU'
-menu background splash.png
-menu color title    * #FFFFFFFF *
-menu color border   * #00000000 #00000000 none
-menu color sel      * #ffffffff #76a1d0ff *
-menu color hotsel   1;7;37;40 #ffffffff #76a1d0ff *
-menu color tabmsg   * #ffffffff #00000000 *
-menu color help     37;40 #ffdddd00 #00000000 none
-menu vshift 12
-menu rows 10
-menu helpmsgrow 15
-menu cmdlinerow 16
-menu timeoutrow 16
-menu tabmsgrow 18
-menu tabmsg Press ENTER to boot or TAB to edit a menu entry
-STDMENU
-
-    # Remove ALL leftover Debian .cfg files from isolinux/ except the four
-    # we explicitly generate (isolinux.cfg, menu.cfg, wtf.cfg, stdmenu.cfg).
-    # Previous builds used a hardcoded list of stale filenames, but Debian
-    # point releases can introduce new .cfg files (gtk.cfg, adgtk.cfg,
-    # spkgtk.cfg, txt.cfg, drk.cfg, spk.cfg, etc.) that sneak graphical-
-    # installer or other unwanted menu entries back into the boot menu.
-    log "Removing ALL leftover Debian .cfg files from isolinux/..."
-    keep_cfgs="isolinux.cfg|menu.cfg|wtf.cfg|stdmenu.cfg"
-    find "$WORK_DIR/isolinux" -maxdepth 1 -name '*.cfg' \
-        | grep -Ev "/($keep_cfgs)$" \
-        | while read -r stale; do
-            log "  removing $(basename "$stale")"
-            rm -f "$stale"
-        done
-fi
-
-# Boot splash message
-cat > "$WORK_DIR/isolinux/boot.msg" <<BOOTMSG
-
- __        _______ _____   _     _
- \ \      / /_   _|  ___| | |   (_)_ __  _   ___  __
-  \ \ /\ / /  | | | |_    | |   | | '_ \| | | \ \/ /
-   \ V  V /   | | |  _|   | |___| | | | | |_| |>  <
-    \_/\_/    |_| |_|     |_____|_|_| |_|\__,_/_/\_\
-
-  WTF Linux ${WTF_VERSION} Installer
-  Based on Debian ${DEBIAN_MAJOR} (${DEBIAN_CODENAME^}) - amd64
-
-BOOTMSG
-
-# Generate GRUB splash image
-log "Copying splash image for GRUB (UEFI) boot menu..."
-convert "${PROJECT_DIR}/branding/desolate_city.jpg" "$WORK_DIR/boot/grub/splash.png"
-log "GRUB splash image installed."
-
-# UEFI boot (GRUB)
 if [[ -f "$WORK_DIR/boot/grub/grub.cfg" ]]; then
     cat > "$WORK_DIR/boot/grub/grub.cfg" <<'GRUB_CFG'
-# WTF Linux GRUB configuration (UEFI)
+# WTF Linux GRUB configuration (Ubuntu 24.04 LTS interactive install)
+
+set default=0
+set timeout=30
 
 if loadfont /boot/grub/font.pf2 ; then
     set gfxmode=800x600
@@ -321,73 +164,157 @@ if loadfont /boot/grub/font.pf2 ; then
     insmod gfxterm
     insmod png
     terminal_output gfxterm
-    background_image /boot/grub/splash.png
 fi
 
 set menu_color_normal=cyan/blue
 set menu_color_highlight=white/blue
-set timeout=-1
 
-menuentry --hotkey=i "Install" {
-    linux /install.amd/vmlinuz vga=788 preseed/file=/cdrom/preseed.cfg --- quiet
-    initrd /install.amd/initrd.gz
+menuentry "Install WTF Linux" {
+    set gfxpayload=keep
+    linux /casper/vmlinuz autoinstall ds=nocloud\;s=/cdrom/autoinstall/ ---
+    initrd /casper/initrd
 }
 
-submenu --hotkey=a "Advanced options ..." {
+menuentry "Install WTF Linux (manual, no defaults)" {
+    set gfxpayload=keep
+    linux /casper/vmlinuz ---
+    initrd /casper/initrd
+}
 
-    menuentry "Expert install" {
-        linux /install.amd/vmlinuz priority=low vga=788 ---
-        initrd /install.amd/initrd.gz
-    }
+menuentry "Try Ubuntu without installing" {
+    set gfxpayload=keep
+    linux /casper/vmlinuz boot=casper ---
+    initrd /casper/initrd
+}
 
-    menuentry "Rescue mode" {
-        linux /install.amd/vmlinuz vga=788 rescue/enable=true --- quiet
-        initrd /install.amd/initrd.gz
-    }
-
-    menuentry "Automated install (unattended)" {
-        linux /install.amd/vmlinuz auto=true priority=critical vga=788 preseed/file=/cdrom/preseed.cfg --- quiet
-        initrd /install.amd/initrd.gz
-    }
+menuentry "Boot from first hard disk" {
+    set root=(hd0)
+    chainloader +1
 }
 GRUB_CFG
 fi
 
-# --- Inject branding files into the ISO for late_command to copy ---
-log "Adding WTF Linux branding..."
-mkdir -p "$WORK_DIR/wtf-linux"
-sed -e "s|@WTF_VERSION@|${WTF_VERSION}|g" \
-    -e "s|@DEBIAN_MAJOR@|${DEBIAN_MAJOR}|g" \
-    -e "s|@DEBIAN_CODENAME@|${DEBIAN_CODENAME^}|g" \
-    "${PROJECT_DIR}/branding/motd" > "$WORK_DIR/wtf-linux/motd"
-cp "${PROJECT_DIR}/config/apt/sources.list" "$WORK_DIR/wtf-linux/sources.list"
-cp "${PROJECT_DIR}/config/ssh/sshd_config.d/wtf-linux.conf" "$WORK_DIR/wtf-linux/sshd-wtf-linux.conf"
+# Also update the UEFI GRUB config if it exists in a different location
+if [[ -f "$WORK_DIR/boot/grub/loopback.cfg" ]]; then
+    cat > "$WORK_DIR/boot/grub/loopback.cfg" <<'LOOPBACK_CFG'
+menuentry "Install WTF Linux" {
+    set gfxpayload=keep
+    linux /casper/vmlinuz autoinstall ds=nocloud\;s=/cdrom/autoinstall/ ---
+    initrd /casper/initrd
+}
+LOOPBACK_CFG
+fi
+
+# --- Boot splash message ---
+log "Installing boot splash text..."
+mkdir -p "$WORK_DIR/isolinux" 2>/dev/null || true
+cat > "$WORK_DIR/isolinux/boot.msg" <<BOOTMSG
+
+ __        _______ _____   _     _
+ \ \      / /_   _|  ___| | |   (_)_ __  _   ___  __
+  \ \ /\ / /  | | | |_    | |   | | '_ \| | | \ \/ /
+   \ V  V /   | | |  _|   | |___| | | | | |_| |>  <
+    \_/\_/    |_| |_|     |_____|_|_| |_|\__,_/_/\_\\
+
+  WTF Linux ${WTF_VERSION} Installer
+  Based on Ubuntu ${UBUNTU_RELEASE} LTS (${UBUNTU_CODENAME^}) - amd64
+
+BOOTMSG
+
+# --- Update ISOLINUX/syslinux if present (BIOS boot) ---
+if [[ -f "$WORK_DIR/isolinux/isolinux.cfg" ]] || [[ -f "$WORK_DIR/isolinux/txt.cfg" ]]; then
+    log "Configuring ISOLINUX boot menu..."
+
+    if [[ -f "$WORK_DIR/isolinux/txt.cfg" ]]; then
+        cat > "$WORK_DIR/isolinux/txt.cfg" <<TXTCFG
+default wtfinstall
+label wtfinstall
+  menu label ^Install WTF Linux
+  kernel /casper/vmlinuz
+  append initrd=/casper/initrd autoinstall ds=nocloud;s=/cdrom/autoinstall/ ---
+label manual
+  menu label ^Install WTF Linux (manual, no defaults)
+  kernel /casper/vmlinuz
+  append initrd=/casper/initrd ---
+TXTCFG
+    fi
+
+    if [[ -f "$WORK_DIR/isolinux/isolinux.cfg" ]]; then
+        cat > "$WORK_DIR/isolinux/isolinux.cfg" <<'ISOLINUX_CFG'
+# WTF Linux ISOLINUX configuration
+default vesamenu.c32
+timeout 300
+prompt 0
+
+include txt.cfg
+ISOLINUX_CFG
+    fi
+fi
 
 # --- Regenerate md5sums ---
-# Hash into a temp file outside $WORK_DIR so the checksum file itself is
-# never walked by find, then move it into place.
 log "Regenerating MD5 checksums..."
 MD5_TMP="$(mktemp "${PROJECT_DIR}/md5sum.XXXXXX")"
-(cd "$WORK_DIR" && find . -not -path './isolinux/*' -not -name md5sum.txt -type f -print0 | xargs -0 md5sum > "$MD5_TMP")
+(cd "$WORK_DIR" && find . -type f -not -name md5sum.txt -not -path './isolinux/*' -print0 | xargs -0 md5sum > "$MD5_TMP")
 mv "$MD5_TMP" "$WORK_DIR/md5sum.txt"
-MD5_TMP=""
 
 # --- Build the new ISO ---
 log "Building WTF Linux ISO..."
+
+# Extract the exact El-Torito / GPT boot parameters from the source ISO.
+# xorriso -report_el_torito as_mkisofs prints the flags needed to reproduce
+# the same boot layout.  We need two values:
+#   1) The --interval for -append_partition 2  (EFI system partition image)
+#   2) The -e argument for the second El-Torito entry (appended partition ref)
+log "Extracting boot parameters from source ISO..."
+ELTORITO_OUTPUT="$(xorriso -indev "$SOURCE_ISO" -report_el_torito as_mkisofs 2>&1)"
+
+# Grab the EFI partition interval  (e.g. 6640484d-6650643d)
+EFI_APPEND_INTERVAL="$(echo "$ELTORITO_OUTPUT" | grep -- '-append_partition 2' | sed "s/.*--interval:local_fs:\([^:]*\)::.*/\1/")"
+if [[ -z "$EFI_APPEND_INTERVAL" ]]; then
+    die "Could not extract EFI partition interval from source ISO"
+fi
+
+# Grab the -e flag for the EFI El-Torito entry
+# (e.g. --interval:appended_partition_2_start_1660121s_size_10160d:all::)
+EFI_ELTORITO_E="$(echo "$ELTORITO_OUTPUT" | grep "^-e " | sed "s/^-e '//;s/'$//")"
+if [[ -z "$EFI_ELTORITO_E" ]]; then
+    die "Could not extract EFI El-Torito entry from source ISO"
+fi
+
+# Grab the -boot-load-size for the EFI entry (e.g. 10160)
+EFI_BOOT_LOAD_SIZE="$(echo "$ELTORITO_OUTPUT" | grep -A2 "^-e " | grep 'boot-load-size' | sed 's/.*-boot-load-size //')"
+if [[ -z "$EFI_BOOT_LOAD_SIZE" ]]; then
+    EFI_BOOT_LOAD_SIZE="10160"
+fi
+
+log "EFI partition interval: ${EFI_APPEND_INTERVAL}"
+log "EFI El-Torito entry:    ${EFI_ELTORITO_E}"
+log "EFI boot-load-size:     ${EFI_BOOT_LOAD_SIZE}"
+
+# Build ISO with xorriso -- Ubuntu live server ISO structure
 xorriso -as mkisofs \
     -r -J \
     -V "$WTF_ISO_LABEL" \
     -o "${OUTPUT_DIR}/${WTF_ISO_NAME}" \
-    -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin \
-    -b isolinux/isolinux.bin \
-    -c isolinux/boot.cat \
+    --grub2-mbr "--interval:local_fs:0s-15s:zero_mbrpt,zero_gpt:${SOURCE_ISO}" \
+    --protective-msdos-label \
+    -partition_cyl_align off \
+    -partition_offset 16 \
+    --mbr-force-bootable \
+    -append_partition 2 28732ac11ff8d211ba4b00a0c93ec93b \
+        "--interval:local_fs:${EFI_APPEND_INTERVAL}::${SOURCE_ISO}" \
+    -appended_part_as_gpt \
+    -iso_mbr_part_type a2a0d0ebe5b9334487c068b6b72699c7 \
+    -c '/boot.catalog' \
+    -b '/boot/grub/i386-pc/eltorito.img' \
+    -no-emul-boot \
     -boot-load-size 4 \
     -boot-info-table \
-    -no-emul-boot \
+    --grub2-boot-info \
     -eltorito-alt-boot \
-    -e boot/grub/efi.img \
+    -e "${EFI_ELTORITO_E}" \
     -no-emul-boot \
-    -isohybrid-gpt-basdat \
+    -boot-load-size "$EFI_BOOT_LOAD_SIZE" \
     "$WORK_DIR"
 
 log "============================================="

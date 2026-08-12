@@ -1,0 +1,161 @@
+#cloud-config
+autoinstall:
+  version: 1
+
+  # --- Interactive sections ---
+  # Subiquity will present these sections interactively to the user,
+  # pre-filled with the defaults defined below. All other sections
+  # (packages, SSH, late-commands, etc.) run automatically.
+  interactive-sections:
+    - identity
+    - storage
+    - network
+
+  # --- Locale and Keyboard ---
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+
+  # --- Timezone ---
+  timezone: UTC
+
+  # --- Network (DHCP on all interfaces — shown as default in interactive UI) ---
+  network:
+    version: 2
+    ethernets:
+      id0:
+        match:
+          name: "en*"
+        dhcp4: true
+      id1:
+        match:
+          name: "eth*"
+        dhcp4: true
+
+  # --- Storage (use entire disk, single partition) ---
+  storage:
+    layout:
+      name: direct
+
+  # --- User account (interactive) ---
+  # These values are pre-filled defaults shown in the interactive installer.
+  # The user sets their own hostname, username, and password during install.
+  identity:
+    hostname: wtf-linux
+    username: wtf
+    password: ""
+
+  # --- SSH ---
+  ssh:
+    install-server: true
+    allow-pw: true
+
+  # --- APT Sources ---
+  apt:
+    preserve_sources_list: false
+    primary:
+      - arches: [amd64]
+        uri: http://archive.ubuntu.com/ubuntu
+    sources_list: |
+      # WTF Linux APT Sources (Ubuntu 24.04 Noble Numbat)
+      deb http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse
+      deb http://archive.ubuntu.com/ubuntu noble-updates main restricted universe multiverse
+      deb http://security.ubuntu.com/ubuntu noble-security main restricted universe multiverse
+      deb http://archive.ubuntu.com/ubuntu noble-backports main restricted universe multiverse
+
+  # --- Package Selection ---
+  packages:
+    # Core utilities
+    - openssh-server
+    - sudo
+    - curl
+    - wget
+    - vim
+    - htop
+    - net-tools
+    - iputils-ping
+    - ca-certificates
+    - gnupg
+    - lsb-release
+    - bash-completion
+    - man-db
+    - less
+    - ufw
+    - apt-transport-https
+    # Hardware diagnostics
+    - ethtool
+    - pciutils
+    - usbutils
+    # VM guest agents
+    - qemu-guest-agent
+    - open-vm-tools
+    - spice-vdagent
+    - acpid
+    # Firmware (Ubuntu uses linux-firmware metapackage)
+    - linux-firmware
+    # DNS utilities
+    - bind9-host
+    - bind9-dnsutils
+    - whois
+    - dnstracer
+    - dns-root-data
+    - ldnsutils
+    - libidn2-0
+    - systemd-resolved
+    # Filesystems
+    - xfsprogs
+    - xfsdump
+    - btrfs-progs
+    - e2fsprogs
+    - dosfstools
+    - ntfs-3g
+    - exfatprogs
+    - f2fs-tools
+    - jfsutils
+    - reiserfsprogs
+    - hfsplus
+    - hfsutils
+    - nilfs-tools
+    - udftools
+    - squashfs-tools
+    - erofs-utils
+    - mtools
+    # Storage and volume management
+    - lvm2
+    - mdadm
+    - cryptsetup
+    - dmsetup
+    - multipath-tools
+    # Network filesystems
+    - nfs-common
+    - cifs-utils
+    - sshfs
+    - fuse3
+    # Partitioning
+    - parted
+    - gdisk
+    - fdisk
+
+  # --- Late commands (post-install customization) ---
+  late-commands:
+    # Enable services
+    - curtin in-target -- systemctl enable ssh
+    - curtin in-target -- systemctl enable systemd-resolved
+    - curtin in-target -- systemctl enable qemu-guest-agent.service 2>/dev/null || true
+    - curtin in-target -- systemctl enable acpid.service
+    - curtin in-target -- systemctl enable serial-getty@ttyS0.service
+    # Configure systemd-resolved
+    - curtin in-target -- ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+    # Install branding -- MOTD
+    - cp /cdrom/autoinstall/motd /target/etc/motd
+    # Install SSH configuration
+    - mkdir -p /target/etc/ssh/sshd_config.d
+    - cp /cdrom/autoinstall/sshd-wtf-linux.conf /target/etc/ssh/sshd_config.d/wtf-linux.conf
+    # Install APT sources
+    - cp /cdrom/autoinstall/sources.list /target/etc/apt/sources.list
+    # WTF Linux version metadata
+    - curtin in-target -- mkdir -p /etc/wtf-linux
+    - echo 'WTF Linux @WTF_VERSION@ (based on Ubuntu 24.04 LTS Noble Numbat)' > /target/etc/wtf-linux/version
+    - printf 'WTF Linux @WTF_VERSION@ \\n \\l\n' > /target/etc/issue
+    - echo 'Welcome to WTF Linux @WTF_VERSION@' > /target/etc/issue.net
+    - printf 'PRETTY_NAME="WTF Linux @WTF_VERSION@"\nNAME="WTF Linux"\nVERSION="@WTF_VERSION@"\nID=wtf-linux\nID_LIKE=ubuntu\nHOME_URL="https://github.com/xmondo/wtf-linux"\nBUG_REPORT_URL="https://github.com/xmondo/wtf-linux/issues"\n' > /target/etc/wtf-release

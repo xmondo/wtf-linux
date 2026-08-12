@@ -5,6 +5,5 @@
    \ V  V /   | | |  _|   | |___| | | | | |_| |>  <
     \_/\_/    |_| |_|     |_____|_|_| |_|\__,_/_/\_\
 
-  WTF Linux @WTF_VERSION@ - Based on Debian @DEBIAN_MAJOR@ (@DEBIAN_CODENAME@)
+  WTF Linux @WTF_VERSION@ - Based on Ubuntu @UBUNTU_RELEASE@ LTS (@UBUNTU_CODENAME@)
   https://github.com/xmondo/wtf-linux
-
