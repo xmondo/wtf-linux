@@ -194,12 +194,17 @@ log "Initrd repacked with WTF Linux branding and preseed."
 # --- Modify ISOLINUX boot menu for interactive install ---
 log "Configuring boot menu for interactive install with WTF defaults..."
 
+# Generate ISOLINUX splash image (640x480 PNG for vesamenu.c32)
+log "Converting branding/desolate_city.jpg to 640x480 PNG for ISOLINUX splash..."
+convert "${PROJECT_DIR}/branding/desolate_city.jpg" -resize 640x480! "$WORK_DIR/isolinux/splash.png"
+log "ISOLINUX splash image installed."
+
 # BIOS boot (isolinux)
 if [[ -f "$WORK_DIR/isolinux/isolinux.cfg" ]]; then
     cat > "$WORK_DIR/isolinux/isolinux.cfg" <<'ISOLINUX_CFG'
 # WTF Linux ISOLINUX configuration
 serial 0 115200
-default menu.c32
+default vesamenu.c32
 timeout 0
 prompt 0
 display boot.msg
@@ -223,17 +228,17 @@ menu begin advanced
     label expert
         menu label ^Expert install
         kernel /install.amd/vmlinuz
-        append vga=normal priority=low console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
+        append vga=788 priority=low console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
 
     label rescue
         menu label ^Rescue mode
         kernel /install.amd/vmlinuz
-        append vga=normal rescue/enable=true priority=low console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
+        append vga=788 rescue/enable=true priority=low console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
 
     label auto
         menu label ^Automated install (unattended)
         kernel /install.amd/vmlinuz
-        append vga=normal auto=true priority=critical preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
+        append vga=788 auto=true priority=critical preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
 
     menu end
 MENUCFG
@@ -244,13 +249,14 @@ label install
     menu label ^Install
     menu default
     kernel /install.amd/vmlinuz
-    append vga=normal preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
+    append vga=788 preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
 WTFCFG
 
     # Always overwrite stdmenu.cfg -- the Debian source ISO ships its own
     # version which may include directives that pull in graphical-installer
     # menu entries (gtk.cfg, etc.).  We must replace it unconditionally.
     cat > "$WORK_DIR/isolinux/stdmenu.cfg" <<'STDMENU'
+menu background splash.png
 menu color title    * #FFFFFFFF *
 menu color border   * #00000000 #00000000 none
 menu color sel      * #ffffffff #76a1d0ff *
@@ -330,24 +336,24 @@ set menu_color_highlight=white/blue
 set timeout=-1
 
 menuentry --hotkey=i "Install" {
-    linux /install.amd/vmlinuz vga=normal preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 ---
+    linux /install.amd/vmlinuz vga=788 preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 ---
     initrd /install.amd/initrd.gz
 }
 
 submenu --hotkey=a "Advanced options ..." {
 
     menuentry "Expert install" {
-        linux /install.amd/vmlinuz vga=normal priority=low console=tty0 console=ttyS0,115200 ---
+        linux /install.amd/vmlinuz vga=788 priority=low console=tty0 console=ttyS0,115200 ---
         initrd /install.amd/initrd.gz
     }
 
     menuentry "Rescue mode" {
-        linux /install.amd/vmlinuz vga=normal rescue/enable=true priority=low console=tty0 console=ttyS0,115200 ---
+        linux /install.amd/vmlinuz vga=788 rescue/enable=true priority=low console=tty0 console=ttyS0,115200 ---
         initrd /install.amd/initrd.gz
     }
 
     menuentry "Automated install (unattended)" {
-        linux /install.amd/vmlinuz vga=normal auto=true priority=critical preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 ---
+        linux /install.amd/vmlinuz vga=788 auto=true priority=critical preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 ---
         initrd /install.amd/initrd.gz
     }
 }
