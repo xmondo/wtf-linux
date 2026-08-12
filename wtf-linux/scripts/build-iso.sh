@@ -228,17 +228,17 @@ menu begin advanced
     label expert
         menu label ^Expert install
         kernel /install.amd/vmlinuz
-        append vga=788 priority=low console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
+        append nomodeset priority=low console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
 
     label rescue
         menu label ^Rescue mode
         kernel /install.amd/vmlinuz
-        append vga=788 rescue/enable=true priority=low console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
+        append nomodeset rescue/enable=true priority=low console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
 
     label auto
         menu label ^Automated install (unattended)
         kernel /install.amd/vmlinuz
-        append vga=788 auto=true priority=critical preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
+        append nomodeset auto=true priority=critical preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
 
     menu end
 MENUCFG
@@ -249,7 +249,7 @@ label install
     menu label ^Install
     menu default
     kernel /install.amd/vmlinuz
-    append vga=788 preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
+    append nomodeset preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
 WTFCFG
 
     # Always overwrite stdmenu.cfg -- the Debian source ISO ships its own
@@ -336,24 +336,24 @@ set menu_color_highlight=white/blue
 set timeout=-1
 
 menuentry --hotkey=i "Install" {
-    linux /install.amd/vmlinuz vga=788 preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 ---
+    linux /install.amd/vmlinuz nomodeset preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 ---
     initrd /install.amd/initrd.gz
 }
 
 submenu --hotkey=a "Advanced options ..." {
 
     menuentry "Expert install" {
-        linux /install.amd/vmlinuz vga=788 priority=low console=tty0 console=ttyS0,115200 ---
+        linux /install.amd/vmlinuz nomodeset priority=low console=tty0 console=ttyS0,115200 ---
         initrd /install.amd/initrd.gz
     }
 
     menuentry "Rescue mode" {
-        linux /install.amd/vmlinuz vga=788 rescue/enable=true priority=low console=tty0 console=ttyS0,115200 ---
+        linux /install.amd/vmlinuz nomodeset rescue/enable=true priority=low console=tty0 console=ttyS0,115200 ---
         initrd /install.amd/initrd.gz
     }
 
     menuentry "Automated install (unattended)" {
-        linux /install.amd/vmlinuz vga=788 auto=true priority=critical preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 ---
+        linux /install.amd/vmlinuz nomodeset auto=true priority=critical preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 ---
         initrd /install.amd/initrd.gz
     }
 }
