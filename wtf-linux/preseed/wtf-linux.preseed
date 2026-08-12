@@ -16,13 +16,13 @@ d-i debian-installer/language string en
 d-i debian-installer/country string US
 d-i keyboard-configuration/xkb-keymap select us
 
-# --- Network (fully interactive, no defaults) ---
-# Do not pre-configure any network settings so the installer
-# presents all network screens and lets the user choose DHCP or static,
-# enter IP/netmask/gateway/DNS, hostname, and domain interactively.
+# --- Network (DHCP by default, user can change) ---
+# Attempt DHCP auto-configuration first for user-friendly setup on
+# physical hardware. Since preseed/interactive is true, the user can
+# still override and configure static IP, DNS, hostname, etc.
 d-i netcfg/enable boolean true
 d-i netcfg/choose_interface select auto
-d-i netcfg/disable_autoconfig boolean true
+d-i netcfg/disable_autoconfig boolean false
 
 # --- Mirror (defaults shown, user can change) ---
 d-i mirror/country string manual
@@ -54,9 +54,8 @@ d-i apt-setup/use_mirror boolean true
 d-i apt-setup/services-select multiselect security, updates
 
 # --- Package Selection ---
-# Minimal VM server: SSH, guest agents, virtio-ready, no desktop environment.
-# Physical NIC firmware is omitted -- VMs use virtio/emulated NICs with
-# in-kernel drivers that require no firmware blobs.
+# Server with SSH and essential tools: includes firmware for physical hardware
+# (Intel, Realtek, Atheros NICs and wireless) and VM guest agents.
 tasksel tasksel/first multiselect ssh-server, standard
 d-i pkgsel/include string \
     openssh-server \
@@ -78,6 +77,13 @@ d-i pkgsel/include string \
     open-vm-tools \
     spice-vdagent \
     acpid \
+    firmware-linux \
+    firmware-linux-nonfree \
+    firmware-linux-free \
+    firmware-realtek \
+    firmware-iwlwifi \
+    firmware-atheros \
+    firmware-misc-nonfree \
     ethtool \
     pciutils \
     xfsprogs \
@@ -110,9 +116,9 @@ d-i pkgsel/upgrade select full-upgrade
 # Popularity contest
 popularity-contest popularity-contest/participate boolean false
 
-# --- Kernel options (VM-optimized) ---
-# Enable serial console on the installed system so headless VMs are
-# accessible via the hypervisor's serial/console interface.
+# --- Kernel options ---
+# Enable serial console on the installed system so headless servers and VMs
+# are accessible via serial/IPMI/hypervisor console interfaces.
 d-i debian-installer/add-kernel-opts string console=tty0 console=ttyS0,115200
 
 # --- GRUB ---

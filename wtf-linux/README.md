@@ -1,6 +1,6 @@
 # WTF Linux
 
-A minimal, VM-optimized amd64 Linux distribution based on Debian 13 (Trixie). Installs from a bootable ISO with a standard interactive Debian installer, pre-filled with sensible defaults. Ships with OpenSSH server, hypervisor guest agents, serial console, full filesystem support, and DNS utilities out of the box.
+A minimal amd64 Linux distribution based on Debian 13 (Trixie) for physical servers, workstations, and virtual machines. Installs from a bootable ISO with a fully interactive Debian installer, pre-filled with sensible defaults. Ships with OpenSSH server, hardware firmware (Intel, Realtek, Atheros), hypervisor guest agents, serial console, full filesystem support, and DNS utilities out of the box.
 
 ## Specifications
 
@@ -8,7 +8,7 @@ A minimal, VM-optimized amd64 Linux distribution based on Debian 13 (Trixie). In
 |----------|-------|
 | Base | Debian 13 (Trixie) |
 | Architecture | amd64 |
-| Target | Virtual machines (QEMU/KVM, Proxmox, VMware, Hyper-V) |
+| Target | Physical x86_64 hardware and virtual machines (QEMU/KVM, Proxmox, VMware, Hyper-V) |
 | Installer | Interactive Debian installer with pre-filled defaults |
 | Boot modes | BIOS (ISOLINUX) and UEFI (GRUB), both with serial console |
 | Default user | Set during install (user creates account interactively) |
@@ -23,7 +23,7 @@ A minimal, VM-optimized amd64 Linux distribution based on Debian 13 (Trixie). In
 When booting the ISO, the installer presents (visible on both VGA and serial console):
 
 ```
-WTF Linux 1.2.1 Installer
+WTF Linux 1.3.0 Installer
 
   Install                    <-- text-mode Debian installer (default)
   Advanced options ...
@@ -49,7 +49,17 @@ openssh-server, sudo, curl, wget, vim, htop, less, man-db, bash-completion, ca-c
 | spice-vdagent | SPICE protocol (Proxmox, virt-manager) |
 | acpid | Graceful shutdown/reboot from any hypervisor |
 
-Physical NIC firmware is omitted -- VMs use virtio or emulated NICs with in-kernel drivers that require no firmware blobs.
+### Hardware Firmware
+
+| Package | Hardware |
+|---------|----------|
+| firmware-linux | Metapackage for all free + non-free firmware |
+| firmware-linux-nonfree | Non-free firmware blobs |
+| firmware-linux-free | Free firmware blobs |
+| firmware-realtek | Realtek NICs (RTL8111/8168/8169, USB) |
+| firmware-iwlwifi | Intel Wireless (Wi-Fi 6/6E/7, AX/BE series) |
+| firmware-atheros | Atheros/Qualcomm wireless adapters |
+| firmware-misc-nonfree | Catch-all for remaining hardware drivers |
 
 ### Filesystems
 
@@ -88,7 +98,7 @@ sudo ./scripts/build-iso.sh
 sudo ./scripts/build-iso.sh --source /path/to/debian-13.6.0-amd64-netinst.iso
 ```
 
-Output: `output/wtf-linux-1.2.1-amd64.iso`
+Output: `output/wtf-linux-1.3.0-amd64.iso`
 
 ### Validate the preseed
 
@@ -140,7 +150,7 @@ qemu-system-x86_64 -m 2048 -enable-kvm -cpu host \
     -drive file=wtf-linux.qcow2,if=virtio,format=qcow2 \
     -device virtio-net-pci,netdev=n0 \
     -netdev user,id=n0,hostfwd=tcp::2222-:22 \
-    -cdrom output/wtf-linux-1.2.1-amd64.iso -boot d \
+    -cdrom output/wtf-linux-1.3.0-amd64.iso -boot d \
     -serial mon:stdio
 ```
 
