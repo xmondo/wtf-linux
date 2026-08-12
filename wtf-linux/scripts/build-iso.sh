@@ -203,7 +203,6 @@ log "ISOLINUX splash image installed."
 if [[ -f "$WORK_DIR/isolinux/isolinux.cfg" ]]; then
     cat > "$WORK_DIR/isolinux/isolinux.cfg" <<'ISOLINUX_CFG'
 # WTF Linux ISOLINUX configuration
-serial 0 115200
 default vesamenu.c32
 timeout 0
 prompt 0
@@ -228,17 +227,17 @@ menu begin advanced
     label expert
         menu label ^Expert install
         kernel /install.amd/vmlinuz
-        append nomodeset priority=low console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
+        append priority=low vga=788 initrd=/install.amd/initrd.gz ---
 
     label rescue
         menu label ^Rescue mode
         kernel /install.amd/vmlinuz
-        append nomodeset rescue/enable=true priority=low console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
+        append vga=788 rescue/enable=true initrd=/install.amd/initrd.gz --- quiet
 
     label auto
         menu label ^Automated install (unattended)
         kernel /install.amd/vmlinuz
-        append nomodeset auto=true priority=critical preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
+        append auto=true priority=critical vga=788 preseed/file=/cdrom/preseed.cfg initrd=/install.amd/initrd.gz --- quiet
 
     menu end
 MENUCFG
@@ -249,7 +248,7 @@ label install
     menu label ^Install
     menu default
     kernel /install.amd/vmlinuz
-    append nomodeset preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 initrd=/install.amd/initrd.gz ---
+    append vga=788 preseed/file=/cdrom/preseed.cfg initrd=/install.amd/initrd.gz --- quiet
 WTFCFG
 
     # Always overwrite stdmenu.cfg -- the Debian source ISO ships its own
@@ -312,12 +311,6 @@ if [[ -f "$WORK_DIR/boot/grub/grub.cfg" ]]; then
     cat > "$WORK_DIR/boot/grub/grub.cfg" <<'GRUB_CFG'
 # WTF Linux GRUB configuration (UEFI)
 
-# Serial console so the boot menu is visible on headless VMs
-insmod serial
-serial --speed=115200 --unit=0
-terminal_input serial console
-terminal_output serial console
-
 if loadfont /boot/grub/font.pf2 ; then
     set gfxmode=800x600
     set gfxpayload=keep
@@ -327,7 +320,7 @@ if loadfont /boot/grub/font.pf2 ; then
     insmod video_cirrus
     insmod gfxterm
     insmod png
-    terminal_output gfxterm serial
+    terminal_output gfxterm
     background_image /boot/grub/splash.png
 fi
 
@@ -336,24 +329,24 @@ set menu_color_highlight=white/blue
 set timeout=-1
 
 menuentry --hotkey=i "Install" {
-    linux /install.amd/vmlinuz nomodeset preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 ---
+    linux /install.amd/vmlinuz vga=788 preseed/file=/cdrom/preseed.cfg --- quiet
     initrd /install.amd/initrd.gz
 }
 
 submenu --hotkey=a "Advanced options ..." {
 
     menuentry "Expert install" {
-        linux /install.amd/vmlinuz nomodeset priority=low console=tty0 console=ttyS0,115200 ---
+        linux /install.amd/vmlinuz priority=low vga=788 ---
         initrd /install.amd/initrd.gz
     }
 
     menuentry "Rescue mode" {
-        linux /install.amd/vmlinuz nomodeset rescue/enable=true priority=low console=tty0 console=ttyS0,115200 ---
+        linux /install.amd/vmlinuz vga=788 rescue/enable=true --- quiet
         initrd /install.amd/initrd.gz
     }
 
     menuentry "Automated install (unattended)" {
-        linux /install.amd/vmlinuz nomodeset auto=true priority=critical preseed/file=/cdrom/preseed.cfg console=tty0 console=ttyS0,115200 ---
+        linux /install.amd/vmlinuz auto=true priority=critical vga=788 preseed/file=/cdrom/preseed.cfg --- quiet
         initrd /install.amd/initrd.gz
     }
 }

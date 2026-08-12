@@ -117,9 +117,8 @@ d-i pkgsel/upgrade select full-upgrade
 popularity-contest popularity-contest/participate boolean false
 
 # --- Kernel options ---
-# Enable serial console on the installed system so headless servers and VMs
-# are accessible via serial/IPMI/hypervisor console interfaces.
-d-i debian-installer/add-kernel-opts string console=tty0 console=ttyS0,115200
+# Direct kernel messages to the VGA console (tty0).
+d-i debian-installer/add-kernel-opts string console=tty0
 
 # --- GRUB ---
 d-i grub-installer/only_debian boolean true
